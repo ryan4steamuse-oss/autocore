@@ -1,2 +1,2 @@
-# autocore
-Car maintenance made easy.
+# AutoCore
+**AutoCore** is an all-in-one smart car management platform that helps users manage every aspect of vehicle ownership in one place. The app allows users to create a digital profile of their car using its VIN, automatically tracking maintenance schedules, service history, vehicle health, estimated market value, fuel economy, and ownership costs. It also provides AI-powered predictive maintenance, DIY repair guides, compatible parts and modification recommendations, mechanic comparisons, quote transparency, theft protection, dashcam integration, and a community for car enthusiasts. Designed for both everyday drivers and enthusiasts, DriveIQ aims to simplify car ownership, reduce maintenance costs, prevent users from being overcharged, and make owning, maintaining, and improving a vehicle easier and more informed.
