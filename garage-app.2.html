@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GarageIQ — Vehicle Management</title>
+<style>
+  :root {
+    --bg: #0d0d0d; --surface: #141414; --card: #1a1a1a; --card2: #202020;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+    --text: #f0ede8; --muted: #888580;
+    --accent: #e8593c; --accent2: #f07a5a; --accent-bg: rgba(232,89,60,0.1); --accent-border: rgba(232,89,60,0.3);
+    --blue: #2a78d6; --green: #1baf7a; --amber: #eda100;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.5; min-height: 100vh; }
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 250px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; }
+  .main { margin-left: 250px; flex: 1; padding: 28px; min-height: 100vh; max-width: 1200px; }
+  .logo { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
+  .logo-text { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-text span { color: var(--accent); }
+  .logo-sub { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .nav { padding: 12px 8px; flex: 1; overflow-y: auto; }
+  .nav-section { margin-bottom: 20px; }
+  .nav-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding: 0 12px; margin-bottom: 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 500; transition: all 0.15s; border: none; background: none; width: 100%; text-align: left; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  .nav-item.active { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-badge { margin-left: auto; background: var(--accent); color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
+  .car-selector { padding: 12px 8px; border-bottom: 1px solid var(--border); max-height: 220px; overflow-y: auto; }
+  .car-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; transition: background 0.15s; }
+  .car-item:hover { background: rgba(255,255,255,0.04); }
+  .car-item.active { background: rgba(255,255,255,0.06); border: 1px solid var(--border2); }
+  .car-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .car-info { flex: 1; min-width: 0; }
+  .car-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .car-plate { font-size: 10px; color: var(--muted); }
+  .car-score { font-size: 11px; font-weight: 700; }
+  .add-car-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; color: var(--muted); font-size: 12px; border: 1px dashed var(--border2); margin: 6px 2px 0; transition: all 0.15s; background: none; width: 100%; }
+  .add-car-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .sidebar-footer { padding: 14px 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-header { margin-bottom: 24px; }
+  .page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .grid-4{grid-template-columns:repeat(2,1fr)} .grid-2,.grid-3,.grid-2-1{grid-template-columns:1fr} }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px 20px; }
+  .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 8px; }
+  .stat-value { font-size: 24px; font-weight: 700; letter-spacing: -1px; }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .health-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .health-ring { position: relative; width: 100px; height: 100px; flex-shrink: 0; }
+  .health-ring svg { transform: rotate(-90deg); }
+  .health-num { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 22px; font-weight: 800; }
+  .health-details { flex: 1; min-width: 220px; }
+  .health-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .health-sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .health-bars { display: flex; flex-direction: column; gap: 8px; }
+  .health-bar-row { display: flex; align-items: center; gap: 10px; }
+  .health-bar-label { font-size: 12px; color: var(--muted); width: 80px; }
+  .health-bar-track { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+  .health-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .health-bar-pct { font-size: 11px; font-weight: 600; width: 32px; text-align: right; }
+  .service-list { display: flex; flex-direction: column; gap: 10px; }
+  .service-item { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--card2); border-radius: var(--radius-sm); border: 1px solid var(--border); }
+  .service-item.overdue { border-color: rgba(232,89,60,0.3); background: rgba(232,89,60,0.05); }
+  .service-item.due-soon { border-color: rgba(237,161,0,0.3); background: rgba(237,161,0,0.05); }
+  .service-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .service-content { flex: 1; min-width: 0; }
+  .service-name { font-size: 13px; font-weight: 600; }
+  .service-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .service-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; white-space: nowrap; flex-shrink: 0; }
+  .badge-ok { background: rgba(27,175,122,0.15); color: var(--green); }
+  .badge-soon { background: rgba(237,161,0,0.15); color: var(--amber); }
+  .badge-due { background: rgba(232,89,60,0.15); color: var(--accent); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: none; text-decoration: none; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-ghost { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--border2); }
+  .btn-ghost:hover { background: rgba(255,255,255,0.1); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+  .section-title { font-size: 14px; font-weight: 700; }
+  .section-link { font-size: 12px; color: var(--accent); cursor: pointer; background: none; border: none; }
+  .section-link:hover { text-decoration: underline; }
+  .alert { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; }
+  .alert-danger { background: rgba(232,89,60,0.1); border: 1px solid rgba(232,89,60,0.25); }
+  .alert-warning { background: rgba(237,161,0,0.1); border: 1px solid rgba(237,161,0,0.25); }
+  .alert-info { background: rgba(42,120,214,0.1); border: 1px solid rgba(42,120,214,0.25); }
+  .alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .alert-text { font-size: 13px; }
+  .alert-text strong { display: block; font-weight: 700; margin-bottom: 2px; }
+  .alert-text span { color: var(--muted); }
+  .cost-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .cost-row:last-child { border-bottom: none; }
+  .cost-label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .cost-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .cost-val { font-size: 13px; font-weight: 600; }
+  .cost-total { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; margin-top: 4px; border-top: 2px solid var(--border2); }
+  .cost-total-label { font-size: 14px; font-weight: 700; }
+  .cost-total-val { font-size: 18px; font-weight: 800; color: var(--accent); }
+  .progress-track { height: 6px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+  .search-wrap { position: relative; margin-bottom: 16px; }
+  .search-input { width: 100%; padding: 10px 16px 10px 38px; background: var(--card); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-size: 13px; outline: none; }
+  .search-input:focus { border-color: var(--accent); }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 15px; pointer-events: none; }
+  .vin-input { width: 100%; padding: 14px 16px; background: var(--card2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-size: 15px; font-family: 'Courier New', monospace; letter-spacing: 2px; text-transform: uppercase; outline: none; }
+  .vin-input:focus { border-color: var(--accent); }
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; display: block; }
+  .form-input { width: 100%; padding: 10px 14px; background: var(--card2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-size: 13px; outline: none; font-family: inherit; }
+  .form-input:focus { border-color: var(--accent); }
+  select.form-input { cursor: pointer; }
+  .tabs { display: flex; gap: 4px; background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 20px; width: fit-content; flex-wrap: wrap; }
+  .tab { padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--muted); transition: all 0.15s; border: none; background: none; }
+  .tab.active { background: var(--accent); color: white; }
+  .mb-8 { margin-bottom: 8px; } .mb-12{margin-bottom:12px} .mb-16 { margin-bottom: 16px; } .mb-20 { margin-bottom: 20px; } .mb-24 { margin-bottom: 24px; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+  .bar { width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; opacity: 0.75; min-height: 4px; }
+  .bar-label { font-size: 10px; color: var(--muted); }
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 3px 8px; border-radius: 5px; font-weight: 600; }
+  .tag-accent { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); }
+  .value-bar { height: 8px; border-radius: 4px; background: linear-gradient(to right, var(--green), var(--amber), var(--accent)); margin: 10px 0; position: relative; }
+  .value-indicator { position: absolute; top: -4px; width: 16px; height: 16px; border-radius: 50%; background: white; border: 3px solid var(--card); box-shadow: 0 0 0 2px var(--blue); transform: translateX(-50%); transition: left 0.4s; }
+  .value-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+  .modal-overlay { display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 300; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+  .modal-overlay.open { display: flex; }
+  .modal-box { background: var(--card); border: 1px solid var(--border2); border-radius: var(--radius); padding: 26px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .modal-title { font-size: 17px; font-weight: 700; }
+  .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 22px; line-height: 1; }
+  .toast-wrap { position: fixed; bottom: 20px; right: 20px; z-index: 500; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--card2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: slideIn 0.2s ease; max-width: 320px; }
+  .toast.success { border-color: rgba(27,175,122,0.4); }
+  .toast.error { border-color: rgba(232,89,60,0.4); }
+  @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .link-list { display: flex; flex-direction: column; gap: 8px; }
+  .link-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); text-decoration: none; color: var(--text); transition: border-color .15s; }
+  .link-row:hover { border-color: var(--accent-border); }
+  .diy-card { background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 18px; margin-bottom: 12px; cursor: pointer; }
+  .diy-card:hover { border-color: var(--accent-border); }
+  .icon-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 4px 8px; border-radius: 6px; }
+  .icon-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  small.hint { color: var(--muted); font-size: 11px; display:block; margin-top: 4px; }
+  textarea.form-input { resize: vertical; font-family: inherit; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-text">Garage<span>IQ</span></div>
+      <div class="logo-sub">Vehicle Management</div>
+    </div>
+    <div class="car-selector" id="car-selector"></div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-label">Overview</div>
+        <button class="nav-item" data-page="dashboard" onclick="showPage('dashboard')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Dashboard
+        </button>
+        <button class="nav-item" data-page="profile" onclick="showPage('profile')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Vehicle Profile
+        </button>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Maintenance</div>
+        <button class="nav-item" data-page="maintenance" onclick="showPage('maintenance')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Service Tracker
+          <span class="nav-badge" id="nav-badge-maint" style="display:none">0</span>
+        </button>
+        <button class="nav-item" data-page="diy" onclick="showPage('diy')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+          DIY Assistant
+        </button>
+        <button class="nav-item" data-page="fuel" onclick="showPage('fuel')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 22V7l9-4 9 4v15M3 11h18M3 16h18M7 22v-4h4v4M13 22v-4h4v4"/></svg>
+          Fuel Log
+        </button>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Tools</div>
+        <button class="nav-item" data-page="mods" onclick="showPage('mods')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Modifications
+        </button>
+        <button class="nav-item" data-page="mechanics" onclick="showPage('mechanics')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          Find Mechanics
+        </button>
+        <button class="nav-item" data-page="value" onclick="showPage('value')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          Car Value
+        </button>
+        <button class="nav-item" data-page="theft" onclick="showPage('theft')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Security
+        </button>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Data is saved automatically to your browser account.</div>
+  </aside>
+
+  <main class="main">
+    <div class="page" id="page-dashboard"></div>
+    <div class="page" id="page-profile"></div>
+    <div class="page" id="page-maintenance"></div>
+    <div class="page" id="page-diy"></div>
+    <div class="page" id="page-fuel"></div>
+    <div class="page" id="page-mods"></div>
+    <div class="page" id="page-mechanics"></div>
+    <div class="page" id="page-value"></div>
+    <div class="page" id="page-theft"></div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal-overlay"><div class="modal-box" id="modal-box"></div></div>
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+/* ============================= CONSTANTS ============================= */
+const STORAGE_KEY = 'garageiq-state-v1';
+
+const SERVICE_INTERVALS = [
+  {key:'oil', name:'Oil & Filter Change', km:10000, months:12, icon:'🛢️', costMin:75, costMax:150},
+  {key:'tyre_rotation', name:'Tyre Rotation', km:10000, months:6, icon:'🔄', costMin:40, costMax:70},
+  {key:'cabin_filter', name:'Cabin Air Filter', km:20000, months:12, icon:'❄️', costMin:20, costMax:45},
+  {key:'air_filter', name:'Engine Air Filter', km:30000, months:24, icon:'💨', costMin:20, costMax:45},
+  {key:'brake_fluid', name:'Brake Fluid Flush', km:40000, months:24, icon:'🩸', costMin:80, costMax:150},
+  {key:'coolant', name:'Coolant Flush', km:60000, months:48, icon:'🌡️', costMin:120, costMax:220},
+  {key:'spark_plugs', name:'Spark Plugs', km:60000, months:60, icon:'⚡', costMin:150, costMax:350},
+  {key:'transmission', name:'Transmission Service', km:80000, months:60, icon:'⚙️', costMin:200, costMax:450},
+  {key:'battery', name:'Battery', km:100000, months:48, icon:'🔋', costMin:150, costMax:300},
+  {key:'timing_belt', name:'Timing Belt', km:100000, months:84, icon:'⏱️', costMin:600, costMax:1200},
+  {key:'brake_pads', name:'Brake Pads', km:50000, months:36, icon:'🛑', costMin:150, costMax:350},
+];
+
+const HEALTH_BUCKETS = {
+  Engine: ['oil','air_filter','spark_plugs','timing_belt','coolant'],
+  Brakes: ['brake_fluid','brake_pads'],
+  Tyres: ['tyre_rotation'],
+  Electrical: ['battery'],
+  Filters: ['cabin_filter']
+};
+
+// Base "as new" MSRP estimates (AUD) used ONLY for the depreciation-model value calculator.
+// These are approximate anchor points, not live pricing.
+const BASE_MSRP = {
+  'toyota camry':42000,'toyota corolla':28000,'toyota rav4':38000,'toyota hilux':45000,'toyota landcruiser':90000,
+  'ford ranger':55000,'ford focus':30000,'ford everest':60000,
+  'mazda 3':30000,'mazda cx-5':40000,'mazda cx-3':28000,
+  'hyundai i30':28000,'hyundai tucson':38000,'hyundai kona':32000,
+  'holden commodore':40000,'holden astra':28000,'holden colorado':48000,
+  'honda civic':32000,'honda cr-v':40000,'honda accord':38000,
+  'nissan x-trail':38000,'nissan navara':48000,'nissan qashqai':32000,
+  'subaru outback':45000,'subaru forester':38000,'subaru impreza':28000,
+  'volkswagen golf':32000,'volkswagen tiguan':42000,'volkswagen amarok':55000,
+  'kia sportage':38000,'kia cerato':26000,'kia seltos':30000,
+  'mitsubishi triton':45000,'mitsubishi outlander':38000,'mitsubishi asx':28000,
+  'tesla model 3':62000,'tesla model y':68000
+};
+const DEFAULT_MSRP = 34000;
+
+const DIY_GUIDES = [
+  { id:'brake-squeak', keywords:['brake squeak','squeal','squealing','grinding brake','noise braking','brake noise'],
+    title:'Brake Squeak or Squeal When Braking', difficulty:2, timeMins:45, costDiyMin:40, costDiyMax:80, costShopMin:180, costShopMax:350,
+    causes:['Worn brake pads (most common cause)','Dust or grit built up on the rotor face','A glazed/hardened rotor surface','Overnight moisture — often clears after a few stops'],
+    steps:[
+      'Park on level ground, engage the handbrake, and chock the wheels before doing anything else.',
+      'Jack the car at a rated jacking point and support it on axle stands — never work under a car on a jack alone.',
+      'Remove the wheel and look through the caliper opening at the pad. Less than 3mm of friction material means it needs replacing soon.',
+      'Run a finger along the rotor face (once cool) — deep grooves or a lip at the outer edge point to rotor wear alongside the pads.',
+      'If pads need replacing: undo the caliper slider bolts, slide the caliper off, swap the pads, and use a G-clamp or piston tool to compress the piston before fitting the new pad.',
+      'Reassemble, torque the wheel nuts to spec, then bed the new pads in with a series of gentle-to-firm stops from low speed before driving normally.'
+    ]},
+  { id:'rough-idle', keywords:['rough idle','shaking idle','engine shakes idle','idle rough','vibrating at idle'],
+    title:'Rough or Shaky Idle', difficulty:2, timeMins:30, costDiyMin:15, costDiyMax:60, costShopMin:120, costShopMax:300,
+    causes:['Dirty or clogged air filter restricting airflow','Worn or fouled spark plugs','A vacuum leak in an intake hose','Dirty throttle body or idle control valve'],
+    steps:[
+      'Check the air filter — hold it up to light; if you can barely see light through it, replace it (cheap and easy).',
+      'Inspect visible vacuum hoses around the intake manifold for cracks or a hose that has popped loose.',
+      'Pull one spark plug and check its tip — black sooty deposits or heavy wear suggest it is time to replace the full set.',
+      'If the above look fine, a throttle-body clean with an aerosol cleaner and a soft brush can resolve idle issues caused by carbon build-up.',
+      'If idle is still rough after these checks, it is worth having a scan tool read for stored fault codes — a mechanic can do this quickly and cheaply.'
+    ]},
+  { id:'check-engine-light', keywords:['check engine light','engine light','cel','warning light dash','dashboard light'],
+    title:'Check Engine Light Is On', difficulty:1, timeMins:15, costDiyMin:0, costDiyMax:20, costShopMin:60, costShopMax:150,
+    causes:['Loose or faulty fuel filler cap (very common, easy fix)','Oxygen sensor or catalytic converter issue','Misfire from spark plugs, coils, or fuel delivery','Emissions system fault'],
+    steps:[
+      'First, check the fuel cap is fully tightened — a loose cap is one of the most common triggers and the light usually clears after a few drive cycles.',
+      'Note whether the light is steady or flashing. A flashing light means an active misfire — reduce load and get it checked promptly rather than continuing to drive hard.',
+      'Many auto parts stores will read the fault code for free if you do not own a code reader.',
+      'Look up the exact code (format P0XXX) — this tells you specifically what system triggered it rather than guessing.',
+      'For anything beyond a loose cap, it is worth having a mechanic confirm before clearing the code, since it can indicate a developing issue worth tracking.'
+    ]},
+  { id:'wont-start', keywords:["won't start",'wont start','not starting','no crank','clicking noise starting','car wont turn over'],
+    title:'Car Won\'t Start', difficulty:2, timeMins:30, costDiyMin:0, costDiyMax:150, costShopMin:100, costShopMax:400,
+    causes:['Flat or failing battery (most common cause)','Corroded or loose battery terminals','Faulty starter motor','Empty fuel tank or fuel delivery issue'],
+    steps:[
+      'Listen carefully: a rapid clicking usually points to a weak battery, while a single loud click can indicate a starter motor issue.',
+      'Check the battery terminals for corrosion (white/blue crust) and make sure both clamps are tight.',
+      'If you have jumper cables and another car, a jump start will confirm whether it is a battery issue — if it starts and runs, the battery may need replacing or charging.',
+      'If jump-starting does not help, the issue is more likely the starter motor, ignition switch, or fuel delivery, which is best diagnosed by a mechanic.',
+      'If the car cranks but does not fire up, check you actually have fuel and that nothing has interrupted the fuel line since it was last driven.'
+    ]},
+  { id:'ac-not-cold', keywords:['ac not cold','air conditioning warm','aircon not working','ac blowing warm','air con broken'],
+    title:'Air Conditioning Not Blowing Cold', difficulty:2, timeMins:20, costDiyMin:30, costDiyMax:100, costShopMin:150, costShopMax:400,
+    causes:['Low refrigerant from a slow leak','Faulty AC compressor clutch','Blocked cabin air filter reducing airflow','Condenser blocked with debris (bugs/leaves) reducing cooling'],
+    steps:[
+      'Check the cabin air filter first — a blocked filter can make airflow feel weak even if the AC itself is fine.',
+      'With the engine running and AC on, listen for the compressor clutch engaging (a soft click near the front of the engine) — if it never engages, refrigerant may be low or the clutch has failed.',
+      'Inspect the condenser (in front of the radiator) for leaves, bugs or debris blocking airflow, and gently hose it out from the engine bay side if needed.',
+      'A basic refrigerant top-up kit can restore cooling short-term if the system is low, but a persistent leak needs a professional recharge and leak check.',
+      'If cooling is completely absent rather than just weak, this is best handled by an AC specialist since diagnosing compressor/electrical faults needs pressure gauges.'
+    ]},
+  { id:'belt-squeal', keywords:['squealing belt','belt noise','screech startup','belt squeal cold','fan belt noise'],
+    title:'Squealing Belt Noise (Startup or Cold)', difficulty:1, timeMins:15, costDiyMin:20, costDiyMax:80, costShopMin:60, costShopMax:180,
+    causes:['Worn or glazed serpentine/drive belt','Belt tensioner losing spring tension','Belt slightly misaligned on a pulley'],
+    steps:[
+      'With the engine off, visually inspect the belt for cracks, fraying, or a shiny glazed surface — any of these mean it is due for replacement.',
+      'Check the tensioner pulley by hand for play or wobble; a healthy tensioner should feel firm with no side-to-side movement.',
+      'If the belt looks fine, a squeal on cold starts can sometimes be improved temporarily with a dedicated belt dressing spray (not general lubricant).',
+      'Replacing a serpentine belt is usually a straightforward DIY job: relieve tension on the tensioner arm with a breaker bar, slip the old belt off, and route the new one per the routing diagram usually printed under the bonnet.',
+      'If the noise persists after a belt replacement, the tensioner pulley itself may need replacing.'
+    ]},
+  { id:'steering-shake', keywords:['steering wheel shakes','vibration at speed','wheel vibration','shaking at highway speed'],
+    title:'Steering Wheel Shakes at Speed', difficulty:3, timeMins:60, costDiyMin:0, costDiyMax:50, costShopMin:80, costShopMax:250,
+    causes:['Wheels out of balance (most common at highway speed)','Warped brake rotor (shake usually happens when braking)','Uneven or cupped tyre wear','Wheel alignment out of spec'],
+    steps:[
+      'Note when the shake happens: constant at speed points to wheel balance, while shaking specifically under braking points to a warped rotor.',
+      'Inspect tyres for uneven or cupped wear patterns, which can indicate an alignment or suspension issue rather than a simple balance problem.',
+      'Wheel balancing requires a balancing machine, so this one is best left to a tyre shop — it is quick and inexpensive.',
+      'If the shake only occurs under braking, have the rotors measured for thickness variation; skimming or replacing a warped rotor usually resolves it.',
+      'If tyres show uneven wear, get a wheel alignment done alongside any tyre or suspension work to stop the problem recurring.'
+    ]},
+  { id:'oil-change', keywords:['oil change','change oil','oil service','how to change oil'],
+    title:'How to Change Your Own Oil', difficulty:1, timeMins:20, costDiyMin:35, costDiyMax:70, costShopMin:75, costShopMax:150,
+    causes:[], howto:true,
+    steps:[
+      'Warm the engine for a couple of minutes so the oil drains fully, then switch off and engage the handbrake.',
+      'Raise the car safely on ramps or axle stands and locate the sump drain plug underneath the engine.',
+      'Place a drain pan under the plug, remove it with the correct socket, and let the oil fully drain (10+ minutes).',
+      'Replace the drain plug with a new sealing washer, then remove and replace the oil filter, lightly oiling the new filter\'s gasket before fitting.',
+      'Refill with the manufacturer-specified oil grade and quantity through the filler cap, then check the level on the dipstick once settled.',
+      'Start the engine, check for leaks around the filter and drain plug, and reset the service reminder light if your car has one.'
+    ]},
+];
+
+/* ============================= STATE ============================= */
+let appState = { vehicles: [], selectedId: null, userLocation: null };
+let currentPage = 'dashboard';
+let diyActiveTab = 'diagnose';
+let modsActiveTab = 'suggested';
+let lastVinExtra = {}; // holds bodyClass/plant info from the last successful VIN decode, merged in on save
+
+/* ============================= UTIL ============================= */
+const $ = sel => document.querySelector(sel);
+const $all = sel => document.querySelectorAll(sel);
+function uid(prefix){ return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function addMonths(dateStr, months){ const d = new Date(dateStr); d.setMonth(d.getMonth()+months); return d.toISOString().slice(0,10); }
+function daysBetween(a,b){ return Math.round((new Date(b) - new Date(a)) / 86400000); }
+function fmtDate(d){ if(!d) return '—'; return new Date(d).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}); }
+function fmtMoney(n){ if(n===null||n===undefined||isNaN(n)) return '—'; return '$' + Math.round(n).toLocaleString('en-AU'); }
+function fmtNum(n){ if(n===null||n===undefined||isNaN(n)) return '—'; return Math.round(n).toLocaleString('en-AU'); }
+function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function showToast(msg, type){
+  const wrap = $('#toast-wrap');
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type||'');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3200);
+}
+
+/* ============================= STORAGE ============================= */
+async function loadState(){
+  try {
+    const res = await window.storage.get(STORAGE_KEY, false);
+    if(res && res.value){
+      appState = JSON.parse(res.value);
+    } else {
+      throw new Error('no data');
+    }
+  } catch(e){
+    appState = { vehicles: [seedVehicle()], selectedId: null, userLocation: null };
+    appState.selectedId = appState.vehicles[0].id;
+    await saveState(true);
+  }
+  if(!appState.selectedId && appState.vehicles.length){ appState.selectedId = appState.vehicles[0].id; }
+  renderAll();
+}
+async function saveState(silent){
+  try {
+    const result = await window.storage.set(STORAGE_KEY, JSON.stringify(appState), false);
+    if(!result) throw new Error('storage returned null');
+    if(!silent) showToast('✓ Saved', 'success');
+  } catch(e){
+    console.error('Save failed', e);
+    showToast('⚠️ Could not save — storage error', 'error');
+  }
+}
+
+function seedVehicle(){
+  const v = {
+    id: uid('veh'), vin:'4T1BF1FK5KU123456', make:'Toyota', model:'Camry', year:'2019', trim:'Ascent',
+    engine:'4-cyl 2.5L', transmission:'8-spd Automatic', drivetrain:'FWD', fuelType:'Gasoline', bodyClass:'Sedan',
+    plantCountry:'', plate:'ABC 123', regState:'VIC', color:'Graphite', odometer: 68420, odometerDate: today(),
+    purchaseDate: '2021-03-01', purchaseOdometer: 40000,
+    services: [
+      {id:uid('svc'), type:'oil', typeName:'Oil & Filter Change', date:'2025-03-10', odometer:60000, cost:120, shop:'Toyota Dealer', notes:'Major service'},
+      {id:uid('svc'), type:'tyre_rotation', typeName:'Tyre Rotation', date:'2025-06-05', odometer:66840, cost:85, shop:'ABC Tyres', notes:'New tyres fitted'},
+      {id:uid('svc'), type:'brake_pads', typeName:'Brake Pads', date:'2024-08-14', odometer:55000, cost:240, shop:'AutoBarn', notes:'Front pads'},
+    ],
+    fuelLogs: [
+      {id:uid('fuel'), date:'2025-05-18', odometer:65780, liters:48, cost:76.32, station:'United Petroleum Carlton'},
+      {id:uid('fuel'), date:'2025-06-01', odometer:66500, liters:44, cost:78.32, station:'Shell Fitzroy'},
+      {id:uid('fuel'), date:'2025-06-14', odometer:67140, liters:40, cost:64.80, station:'Coles Express Docklands'},
+      {id:uid('fuel'), date:'2025-06-28', odometer:67780, liters:45, cost:75.60, station:'BP Melbourne CBD'},
+      {id:uid('fuel'), date:'2025-07-12', odometer:68420, liters:42, cost:73.08, station:'7-Eleven Parkville'},
+    ],
+    documents: []
+  };
+  return v;
+}
+
+function getVehicle(id){ return appState.vehicles.find(v=>v.id===id); }
+function getSelected(){ return getVehicle(appState.selectedId); }
+
+/* ============================= COMPUTED LOGIC ============================= */
+function getServiceStatus(vehicle){
+  return SERVICE_INTERVALS.map(interval=>{
+    const past = vehicle.services.filter(s=>s.type===interval.key).sort((a,b)=> b.odometer-a.odometer);
+    const last = past[0];
+    let dueKm, dueDate;
+    if(last){
+      dueKm = last.odometer + interval.km;
+      dueDate = addMonths(last.date, interval.months);
+    } else {
+      dueKm = interval.km;
+      dueDate = addMonths(vehicle.purchaseDate || vehicle.odometerDate || today(), interval.months);
+    }
+    const kmRemaining = dueKm - vehicle.odometer;
+    const daysRemaining = daysBetween(today(), dueDate);
+    let status = 'ok';
+    if(kmRemaining <= 0 || daysRemaining <= 0) status = 'overdue';
+    else if(kmRemaining <= 1000 || daysRemaining <= 30) status = 'soon';
+    return {...interval, last, dueKm, kmRemaining, dueDate, daysRemaining, status};
+  }).sort((a,b)=>{
+    const rank = {overdue:0, soon:1, ok:2};
+    return rank[a.status]-rank[b.status] || a.kmRemaining-b.kmRemaining;
+  });
+}
+
+function computeHealth(vehicle){
+  const statuses = getServiceStatus(vehicle);
+  const byKey = Object.fromEntries(statuses.map(s=>[s.key,s]));
+  const bucketScores = {};
+  Object.entries(HEALTH_BUCKETS).forEach(([bucket, keys])=>{
+    const scores = keys.map(k=>{
+      const s = byKey[k];
+      if(!s) return 100;
+      if(s.status==='ok') return 100;
+      if(s.status==='soon') return 65;
+      return 30;
+    });
+    bucketScores[bucket] = Math.round(scores.reduce((a,b)=>a+b,0)/scores.length);
+  });
+  const overall = Math.round(Object.values(bucketScores).reduce((a,b)=>a+b,0)/Object.keys(bucketScores).length);
+  return {overall, buckets: bucketScores};
+}
+
+function getFuelStats(vehicle){
+  const logs = [...vehicle.fuelLogs].sort((a,b)=> a.odometer-b.odometer);
+  let consumptions = [];
+  for(let i=1;i<logs.length;i++){
+    const distance = logs[i].odometer - logs[i-1].odometer;
+    if(distance>0){
+      const l100 = (logs[i].liters/distance)*100;
+      consumptions.push({date: logs[i].date, l100km: l100});
+    }
+  }
+  const avgL100 = consumptions.length ? consumptions.reduce((s,c)=>s+c.l100km,0)/consumptions.length : null;
+  const totalCost = logs.reduce((s,l)=>s+Number(l.cost||0),0);
+  const totalLiters = logs.reduce((s,l)=>s+Number(l.liters||0),0);
+  const totalDistance = logs.length>1 ? logs[logs.length-1].odometer - logs[0].odometer : 0;
+  const costPerKm = totalDistance>0 ? totalCost/totalDistance : null;
+  const monthly = {};
+  logs.forEach(l=>{ const m = (l.date||'').slice(0,7); if(!m) return; monthly[m] = (monthly[m]||0) + Number(l.cost||0); });
+  return {avgL100, totalCost, totalLiters, costPerKm, consumptions, monthly, logs};
+}
+
+function getAnnualKm(vehicle){
+  if(vehicle.purchaseDate && vehicle.purchaseOdometer!=null){
+    const years = daysBetween(vehicle.purchaseDate, today())/365;
+    if(years > 0.05){
+      return (vehicle.odometer - vehicle.purchaseOdometer)/years;
+    }
+  }
+  const logs = [...vehicle.fuelLogs].sort((a,b)=> new Date(a.date)-new Date(b.date));
+  if(logs.length>1){
+    const days = daysBetween(logs[0].date, logs[logs.length-1].date);
+    const dist = logs[logs.length-1].odometer - logs[0].odometer;
+    if(days>0) return dist/(days/365);
+  }
+  return null;
+}
+
+function getAnnualCost(vehicle){
+  const fuel = getFuelStats(vehicle);
+  const annualKm = getAnnualKm(vehicle);
+  const fuelAnnual = annualKm && fuel.costPerKm ? fuel.costPerKm * annualKm : fuel.totalCost;
+  const svcTotal = vehicle.services.reduce((s,x)=>s+Number(x.cost||0),0);
+  const svcSpan = vehicle.services.length ? Math.max(daysBetween(vehicle.services.reduce((min,s)=> s.date<min?s.date:min, vehicle.services[0].date), today())/365, 0.25) : 1;
+  const maintAnnual = vehicle.services.length ? svcTotal/svcSpan : 0;
+  return { fuelAnnual, maintAnnual, total: fuelAnnual + maintAnnual };
+}
+
+/* ============================= VIN DECODE (real NHTSA vPIC API) ============================= */
+async function decodeVin(vin){
+  vin = (vin||'').trim().toUpperCase();
+  if(vin.length < 10 || vin.length > 17){
+    return {error: 'A VIN should be 11–17 characters. Please check and try again.'};
+  }
+  try {
+    const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${encodeURIComponent(vin)}?format=json`);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const r = data.Results && data.Results[0];
+    if(!r) return {error: 'No data returned for this VIN.'};
+    if(!r.Make && !r.Model){
+      return {error: (r.ErrorText && r.ErrorText !== '0 - VIN decoded clean. Check Digit (9th position) is correct') ? r.ErrorText : 'This VIN could not be decoded — it may be invalid or for a market outside the US database.'};
+    }
+    const engineParts = [];
+    if(r.EngineCylinders) engineParts.push(r.EngineCylinders + '-cyl');
+    if(r.DisplacementL) engineParts.push(parseFloat(r.DisplacementL).toFixed(1) + 'L');
+    if(r.EngineHP) engineParts.push(r.EngineHP + 'hp');
+    const transParts = [];
+    if(r.TransmissionSpeeds) transParts.push(r.TransmissionSpeeds + '-spd');
+    if(r.TransmissionStyle) transParts.push(r.TransmissionStyle);
+    return {
+      make: r.Make || '', model: r.Model || '', year: r.ModelYear || '', trim: r.Trim || r.Series || '',
+      engine: engineParts.join(' ') || '', transmission: transParts.join(' ') || '',
+      drivetrain: r.DriveType || '', fuelType: r.FuelTypePrimary || '', bodyClass: r.BodyClass || '',
+      plantCountry: r.PlantCountry || '', plantCity: r.PlantCity || '', manufacturer: r.Manufacturer || '',
+      doors: r.Doors || ''
+    };
+  } catch(e){
+    return {error: 'Could not reach the NHTSA VIN decoding service right now (network issue). You can still enter details manually below. [' + e.message + ']'};
+  }
+}
+
+/* ============================= RENDER: SIDEBAR ============================= */
+function renderSidebar(){
+  const wrap = $('#car-selector');
+  let html = '';
+  appState.vehicles.forEach(v=>{
+    const health = computeHealth(v);
+    const color = health.overall>=80?'#1baf7a':health.overall>=60?'#eda100':'#e8593c';
+    const active = v.id===appState.selectedId ? 'active' : '';
+    html += `<div class="car-item ${active}" onclick="selectVehicle('${v.id}')">
+      <div class="car-dot" style="background:${color}"></div>
+      <div class="car-info">
+        <div class="car-name">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)}</div>
+        <div class="car-plate">${escapeHtml(v.plate||'No plate')} • ${escapeHtml(v.regState||'')}</div>
+      </div>
+      <div class="car-score" style="color:${color}">${health.overall}</div>
+    </div>`;
+  });
+  html += `<button class="add-car-btn" onclick="openVehicleModal()">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    Add vehicle
+  </button>`;
+  wrap.innerHTML = html;
+
+  const overdueCount = appState.vehicles.length ? getServiceStatus(getSelected()||appState.vehicles[0]).filter(s=>s.status==='overdue').length : 0;
+  const badge = $('#nav-badge-maint');
+  if(overdueCount>0){ badge.style.display='inline-block'; badge.textContent = overdueCount; } else { badge.style.display='none'; }
+}
+
+function selectVehicle(id){ appState.selectedId = id; saveState(true); renderAll(); }
+
+/* ============================= NAVIGATION ============================= */
+function showPage(name){
+  currentPage = name;
+  $all('.page').forEach(p=>p.classList.remove('active'));
+  const target = document.getElementById('page-' + name);
+  if(target) target.classList.add('active');
+  $all('.nav-item').forEach(b=> b.classList.toggle('active', b.dataset.page===name));
+  renderPage(name);
+}
+
+function renderAll(){
+  renderSidebar();
+  if(!appState.vehicles.length){
+    $all('.page').forEach(p=> p.innerHTML = emptyStateNoVehicle());
+    return;
+  }
+  renderPage(currentPage);
+  $all('.nav-item').forEach(b=> b.classList.toggle('active', b.dataset.page===currentPage));
+  $all('.page').forEach(p=>p.classList.remove('active'));
+  const t = document.getElementById('page-'+currentPage); if(t) t.classList.add('active');
+}
+
+function emptyStateNoVehicle(){
+  return `<div class="empty-state">
+    <div class="icon">🚗</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px">No vehicles yet</div>
+    <div style="margin-bottom:16px">Add your first vehicle to get started — decode it instantly from its VIN.</div>
+    <button class="btn btn-primary" onclick="openVehicleModal()">+ Add Vehicle</button>
+  </div>`;
+}
+
+function renderPage(name){
+  if(!appState.vehicles.length){ $all('.page').forEach(p=> p.innerHTML = emptyStateNoVehicle()); return; }
+  const v = getSelected();
+  const fns = {dashboard:renderDashboard, profile:renderProfile, maintenance:renderMaintenance, diy:renderDiy, fuel:renderFuel, mods:renderMods, mechanics:renderMechanics, value:renderValue, theft:renderTheft};
+  if(fns[name]) fns[name](v);
+}
+
+/* ============================= DASHBOARD ============================= */
+function renderDashboard(v){
+  const statuses = getServiceStatus(v);
+  const health = computeHealth(v);
+  const overdue = statuses.filter(s=>s.status==='overdue');
+  const soon = statuses.filter(s=>s.status==='soon');
+  const fuel = getFuelStats(v);
+  const annualKm = getAnnualKm(v);
+  const costs = getAnnualCost(v);
+  const healthColor = health.overall>=80?'#1baf7a':health.overall>=60?'#eda100':'#e8593c';
+  const circumference = 238.76;
+  const offset = circumference * (1 - health.overall/100);
+
+  const bucketColors = {Engine:'#1baf7a',Brakes:'#e8593c',Tyres:'#eda100',Electrical:'#2a78d6',Filters:'#4a3aa7'};
+
+  let alerts = '';
+  overdue.forEach(s=>{
+    alerts += `<div class="alert alert-danger"><div class="alert-icon">⚠️</div><div class="alert-text"><strong>${s.name} overdue by ${fmtNum(Math.abs(s.kmRemaining))} km</strong><span>Recommended every ${fmtNum(s.km)} km / ${s.months} months. Estimated cost ${fmtMoney(s.costMin)}–${fmtMoney(s.costMax)}.</span></div></div>`;
+  });
+  soon.slice(0,2).forEach(s=>{
+    alerts += `<div class="alert alert-warning"><div class="alert-icon">🔔</div><div class="alert-text"><strong>${s.name} due in ${fmtNum(Math.max(s.kmRemaining,0))} km</strong><span>Estimated ${fmtDate(s.dueDate)}, cost ${fmtMoney(s.costMin)}–${fmtMoney(s.costMax)}.</span></div></div>`;
+  });
+  if(!alerts) alerts = `<div class="alert alert-info"><div class="alert-icon">✅</div><div class="alert-text"><strong>Everything on track</strong><span>No services due soon based on your logged history.</span></div></div>`;
+
+  const monthlyKeys = Object.keys(fuel.monthly).sort().slice(-7);
+  const maxMonthly = Math.max(...monthlyKeys.map(k=>fuel.monthly[k]), 1);
+  const barsHtml = monthlyKeys.length ? monthlyKeys.map(k=>{
+    const val = fuel.monthly[k];
+    const h = Math.max((val/maxMonthly)*100, 6);
+    const label = new Date(k+'-01').toLocaleDateString('en-AU',{month:'short'});
+    return `<div class="bar-wrap"><div class="bar" style="height:${h}%" title="${fmtMoney(val)}"></div><div class="bar-label">${label}</div></div>`;
+  }).join('') : '<div style="color:var(--muted);font-size:12px;padding:20px 0">Log fuel fill-ups to see your spend trend.</div>';
+
+  const nextDue = statuses.filter(s=>s.status!=='ok').slice(0,4);
+  const serviceListHtml = (nextDue.length?nextDue:statuses.slice(0,4)).map(s=>`
+    <div class="service-item ${s.status==='overdue'?'overdue':s.status==='soon'?'due-soon':''}">
+      <div class="service-icon" style="background:rgba(255,255,255,0.05)">${s.icon}</div>
+      <div class="service-content">
+        <div class="service-name">${s.name}</div>
+        <div class="service-detail">${s.status==='overdue'?`Overdue by ${fmtNum(Math.abs(s.kmRemaining))} km`:`Due in ${fmtNum(Math.max(s.kmRemaining,0))} km`} — est. ${fmtMoney(s.costMin)}–${fmtMoney(s.costMax)}</div>
+      </div>
+      <div class="service-badge ${s.status==='overdue'?'badge-due':s.status==='soon'?'badge-soon':'badge-ok'}">${s.status==='overdue'?'Overdue':s.status==='soon'?'Due soon':'On track'}</div>
+    </div>`).join('');
+
+  $('#page-dashboard').innerHTML = `
+    <div class="page-header header-row">
+      <div><div class="page-title">Dashboard</div><div class="page-sub">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} — ${fmtNum(v.odometer)} km</div></div>
+      <button class="btn btn-primary" onclick="openServiceModal()">+ Log Service</button>
+    </div>
+    ${alerts}
+    <div class="grid-4 mb-24">
+      <div class="stat-card"><div class="stat-label">Health Score</div><div class="stat-value" style="color:${healthColor}">${health.overall}</div><div class="stat-sub">${health.overall>=80?'Excellent':health.overall>=60?'Needs attention':'Overdue services'}</div></div>
+      <div class="stat-card"><div class="stat-label">Annual KMs</div><div class="stat-value">${annualKm?fmtNum(annualKm):'—'}</div><div class="stat-sub">${annualKm?'Estimated from history':'Add purchase details for estimate'}</div></div>
+      <div class="stat-card"><div class="stat-label">Fuel Economy</div><div class="stat-value">${fuel.avgL100?fuel.avgL100.toFixed(1):'—'}</div><div class="stat-sub">${fuel.avgL100?'L/100km avg':'Log 2+ fill-ups'}</div></div>
+      <div class="stat-card"><div class="stat-label">Cost / yr</div><div class="stat-value">${fmtMoney(costs.total)}</div><div class="stat-sub">Fuel + maintenance</div></div>
+    </div>
+    <div class="grid-2-1">
+      <div>
+        <div class="health-card mb-20">
+          <div class="health-ring"><svg width="100" height="100" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+            <circle cx="50" cy="50" r="38" fill="none" stroke="${healthColor}" stroke-width="8" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round"/>
+          </svg><div class="health-num" style="color:${healthColor}">${health.overall}</div></div>
+          <div class="health-details">
+            <div class="health-title">Vehicle Health</div>
+            <div class="health-sub">Computed from your logged service intervals</div>
+            <div class="health-bars">
+              ${Object.entries(health.buckets).map(([b,score])=>`
+                <div class="health-bar-row"><div class="health-bar-label">${b}</div><div class="health-bar-track"><div class="health-bar-fill" style="width:${score}%;background:${bucketColors[b]}"></div></div><div class="health-bar-pct" style="color:${bucketColors[b]}">${score}</div></div>`).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="section-header"><div class="section-title">Upcoming Services</div><button class="section-link" onclick="showPage('maintenance')">View all</button></div>
+        <div class="service-list">${serviceListHtml}</div>
+      </div>
+      <div>
+        <div class="card mb-16">
+          <div class="section-header"><div class="section-title">Monthly Fuel Spend</div></div>
+          <div class="bar-chart">${barsHtml}</div>
+        </div>
+        <div class="card">
+          <div class="section-header"><div class="section-title">Cost Breakdown (est. /yr)</div></div>
+          <div class="cost-row"><div class="cost-label"><div class="cost-dot" style="background:#2a78d6"></div>Fuel</div><div class="cost-val">${fmtMoney(costs.fuelAnnual)}</div></div>
+          <div class="cost-row"><div class="cost-label"><div class="cost-dot" style="background:#eda100"></div>Maintenance</div><div class="cost-val">${fmtMoney(costs.maintAnnual)}</div></div>
+          <div class="cost-total"><div class="cost-total-label">Total</div><div class="cost-total-val">${fmtMoney(costs.total)}</div></div>
+          <small class="hint">Estimated from your logged fuel and service records. Insurance/registration aren't tracked yet — add them in Vehicle Profile if you'd like them included.</small>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================= VEHICLE PROFILE ============================= */
+function renderProfile(v){
+  $('#page-profile').innerHTML = `
+    <div class="page-header header-row">
+      <div><div class="page-title">Vehicle Profile</div><div class="page-sub">Manage details, VIN data & documents</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${v.id}')">Edit Details</button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteVehicle('${v.id}')" style="color:var(--accent)">Delete Vehicle</button>
+      </div>
+    </div>
+    <div class="grid-2 mb-20">
+      <div class="card">
+        <div class="section-title mb-16">Vehicle Details</div>
+        <div class="grid-2" style="gap:2px 20px">
+          ${profileField('VIN', v.vin)}
+          ${profileField('Make', v.make)}
+          ${profileField('Model', v.model)}
+          ${profileField('Year', v.year)}
+          ${profileField('Trim', v.trim)}
+          ${profileField('Engine', v.engine)}
+          ${profileField('Transmission', v.transmission)}
+          ${profileField('Drivetrain', v.drivetrain)}
+          ${profileField('Fuel Type', v.fuelType)}
+          ${profileField('Body Class', v.bodyClass)}
+          ${profileField('Colour', v.color)}
+          ${profileField('Plate', v.plate + (v.regState? ' • '+v.regState : ''))}
+          ${profileField('Odometer', fmtNum(v.odometer) + ' km')}
+          ${profileField('Build Plant', [v.plantCity,v.plantCountry].filter(Boolean).join(', '))}
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title mb-16">Documents Vault</div>
+        <div id="doc-list">${renderDocuments(v)}</div>
+        <label class="btn btn-ghost btn-sm" style="margin-top:14px;width:100%;justify-content:center;cursor:pointer;display:flex">
+          📎 Upload Document
+          <input type="file" id="doc-upload" style="display:none" onchange="handleDocUpload(event)">
+        </label>
+        <small class="hint">Stored with your account (keep files under 1.5MB — everything is saved as one data record, so large files add up quickly).</small>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title mb-16">Ownership & History</div>
+      <div class="grid-4" style="gap:12px">
+        <div style="padding:16px;background:rgba(27,175,122,0.08);border-radius:var(--radius-sm);border:1px solid rgba(27,175,122,0.2);text-align:center">
+          <div style="font-size:22px;font-weight:800;color:#1baf7a">${v.services.length}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Services Logged</div>
+        </div>
+        <div style="padding:16px;background:rgba(42,120,214,0.08);border-radius:var(--radius-sm);border:1px solid rgba(42,120,214,0.2);text-align:center">
+          <div style="font-size:22px;font-weight:800;color:#2a78d6">${v.fuelLogs.length}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Fuel Entries</div>
+        </div>
+        <div style="padding:16px;background:rgba(74,58,167,0.08);border-radius:var(--radius-sm);border:1px solid rgba(74,58,167,0.2);text-align:center">
+          <div style="font-size:22px;font-weight:800;color:#4a3aa7">${fmtDate(v.purchaseDate)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Purchase Date</div>
+        </div>
+        <div style="padding:16px;background:rgba(237,161,0,0.08);border-radius:var(--radius-sm);border:1px solid rgba(237,161,0,0.2);text-align:center">
+          <div style="font-size:22px;font-weight:800;color:#eda100">${v.purchaseOdometer!=null?fmtNum(v.purchaseOdometer):'—'}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Odometer at Purchase</div>
+        </div>
+      </div>
+      <small class="hint" style="margin-top:12px">Accident/write-off history requires a paid vehicle-history check (e.g. a PPSR/state check) — that lookup isn't wired to a live API here, so it isn't shown automatically.</small>
+    </div>
+  `;
+}
+function profileField(label, value){
+  return `<div style="padding:8px 0"><div class="form-label" style="margin-bottom:2px">${label}</div><div style="font-size:13px;font-weight:600">${escapeHtml(value)||'<span style="color:var(--muted);font-weight:400">Not set</span>'}</div></div>`;
+}
+function renderDocuments(v){
+  if(!v.documents.length) return `<div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">No documents uploaded yet.</div>`;
+  return `<div class="service-list">` + v.documents.map(d=>`
+    <div class="service-item">
+      <div class="service-icon" style="background:rgba(42,120,214,0.1)">📄</div>
+      <div class="service-content"><div class="service-name">${escapeHtml(d.name)}</div><div class="service-detail">Uploaded ${fmtDate(d.date)}</div></div>
+      <a href="${d.dataUrl}" download="${escapeHtml(d.name)}" class="icon-btn" title="Download">⬇️</a>
+      <button class="icon-btn" onclick="deleteDocument('${v.id}','${d.id}')" title="Delete">🗑️</button>
+    </div>`).join('') + `</div>`;
+}
+function handleDocUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.size > 1.5*1024*1024){ showToast('⚠️ File too large — please keep under 1.5MB', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = async function(ev){
+    const v = getSelected();
+    v.documents.push({id: uid('doc'), name: file.name, dataUrl: ev.target.result, date: today()});
+    await saveState(true);
+    renderProfile(v);
+    showToast('✓ Document uploaded', 'success');
+  };
+  reader.onerror = function(){ showToast('⚠️ Could not read file', 'error'); };
+  reader.readAsDataURL(file);
+}
+async function deleteDocument(vid, did){
+  const v = getVehicle(vid);
+  v.documents = v.documents.filter(d=>d.id!==did);
+  await saveState(true);
+  renderProfile(v);
+}
+
+/* ============================= MAINTENANCE ============================= */
+function renderMaintenance(v){
+  const statuses = getServiceStatus(v);
+  const historySorted = [...v.services].sort((a,b)=> new Date(b.date)-new Date(a.date));
+  $('#page-maintenance').innerHTML = `
+    <div class="page-header header-row">
+      <div><div class="page-title">Service Tracker</div><div class="page-sub">All maintenance records and computed schedule</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="exportCsv('services')">⬇️ Export CSV</button>
+        <button class="btn btn-primary btn-sm" onclick="openServiceModal()">+ Log Service</button>
+      </div>
+    </div>
+    <div class="grid-2-1">
+      <div>
+        <div class="section-header"><div class="section-title">Service Schedule</div></div>
+        <div class="service-list">
+          ${statuses.map(s=>`
+            <div class="service-item ${s.status==='overdue'?'overdue':s.status==='soon'?'due-soon':''}">
+              <div class="service-icon" style="background:rgba(255,255,255,0.05)">${s.icon}</div>
+              <div class="service-content">
+                <div class="service-name">${s.name}</div>
+                <div class="service-detail">${s.last?`Last: ${fmtNum(s.last.odometer)} km, ${fmtDate(s.last.date)}`:'Never logged'} • Every ${fmtNum(s.km)} km / ${s.months}mo</div>
+              </div>
+              <div style="text-align:right">
+                <div class="service-badge ${s.status==='overdue'?'badge-due':s.status==='soon'?'badge-soon':'badge-ok'}">${s.status==='overdue'?`${fmtNum(Math.abs(s.kmRemaining))} km over`:s.status==='soon'?`${fmtNum(s.kmRemaining)} km left`:'On track'}</div>
+                <button class="icon-btn" style="margin-top:4px;font-size:11px" onclick="openServiceModal('${s.key}')">Log now</button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="section-title mb-16">Recent History</div>
+          ${historySorted.length ? historySorted.map(s=>`
+            <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <div style="font-size:13px;font-weight:600">${escapeHtml(s.typeName)}</div>
+                <div style="font-size:12px;color:var(--muted)">${fmtDate(s.date)}</div>
+              </div>
+              <div style="font-size:12px;color:var(--muted)">${fmtNum(s.odometer)} km • ${escapeHtml(s.shop||'—')} • ${fmtMoney(s.cost)}</div>
+              ${s.notes?`<div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(s.notes)}</div>`:''}
+              <button class="icon-btn" style="font-size:11px;padding:2px 0;color:var(--accent)" onclick="deleteService('${v.id}','${s.id}')">Delete</button>
+            </div>`).join('') : '<div style="color:var(--muted);font-size:13px;padding:16px 0">No services logged yet.</div>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+async function deleteService(vid, sid){
+  const v = getVehicle(vid);
+  v.services = v.services.filter(s=>s.id!==sid);
+  await saveState(true);
+  renderAll();
+  showToast('Service record deleted', 'success');
+}
+
+/* ============================= DIY ASSISTANT ============================= */
+function searchDiy(query){
+  query = (query||'').toLowerCase().trim();
+  if(!query) return [];
+  const words = query.split(/\s+/).filter(w=>w.length>2);
+  const scored = DIY_GUIDES.map(g=>{
+    let score=0;
+    g.keywords.forEach(k=>{ if(query.includes(k)) score += k.split(' ').length*3; });
+    words.forEach(w=>{ if(g.keywords.some(k=>k.includes(w))) score += 1; if(g.title.toLowerCase().includes(w)) score += 1; });
+    return {g, score};
+  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+  return scored.map(x=>x.g);
+}
+function renderDiy(v){
+  $('#page-diy').innerHTML = `
+    <div class="page-header"><div class="page-title">DIY Assistant</div><div class="page-sub">Search real, general guidance for common issues</div></div>
+    <div class="search-wrap"><div class="search-icon">🔍</div>
+      <input class="search-input" id="diy-search" placeholder='Describe your issue — e.g. "brake squeak", "wont start", "rough idle"' oninput="renderDiyResults(this.value)">
+    </div>
+    <div id="diy-results"></div>
+    <div id="diy-detail"></div>
+  `;
+  renderDiyResults('');
+}
+function renderDiyResults(query){
+  const box = $('#diy-results');
+  const detail = $('#diy-detail');
+  detail.innerHTML = '';
+  if(!query.trim()){
+    box.innerHTML = `<div class="section-title mb-12">Browse common guides</div>` + DIY_GUIDES.map(g=>diyCardHtml(g)).join('');
+    return;
+  }
+  const results = searchDiy(query);
+  if(!results.length){
+    box.innerHTML = `<div class="alert alert-info"><div class="alert-icon">🤷</div><div class="alert-text"><strong>No matching guide found</strong><span>Try different words, or find a mechanic to diagnose it properly.</span></div></div>`;
+    return;
+  }
+  box.innerHTML = results.map(g=>diyCardHtml(g)).join('');
+}
+function diyCardHtml(g){
+  return `<div class="diy-card" onclick="showDiyDetail('${g.id}')">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div>
+        <div style="font-size:14px;font-weight:700">${g.title}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <span class="tag" style="background:rgba(237,161,0,0.15);color:#eda100">${'⭐'.repeat(g.difficulty)} ${g.difficulty===1?'Easy':g.difficulty===2?'Medium':'Hard'}</span>
+          <span class="tag" style="background:rgba(255,255,255,0.06);color:var(--muted)">~${g.timeMins} min</span>
+          <span class="tag" style="background:rgba(27,175,122,0.12);color:#1baf7a">DIY: ${fmtMoney(g.costDiyMin)}–${fmtMoney(g.costDiyMax)}</span>
+        </div>
+      </div>
+      <div style="color:var(--muted)">→</div>
+    </div>
+  </div>`;
+}
+function showDiyDetail(id){
+  const g = DIY_GUIDES.find(x=>x.id===id);
+  if(!g) return;
+  const v = getSelected();
+  const partsLinks = partSearchLinks(g.title.split('(')[0], v);
+  $('#diy-detail').innerHTML = `
+    <div class="card" style="margin-top:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px">
+        <div style="font-size:17px;font-weight:700">${g.title}</div>
+        <button class="icon-btn" onclick="$('#diy-detail').innerHTML=''">✕ Close</button>
+      </div>
+      ${g.causes.length?`<div class="grid-2 mb-16" style="gap:12px">
+        <div style="padding:14px;background:var(--card2);border-radius:var(--radius-sm);border:1px solid var(--border)">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin-bottom:8px">Possible Causes</div>
+          ${g.causes.map(c=>`<div style="font-size:13px;margin-bottom:4px">• ${c}</div>`).join('')}
+        </div>
+        <div style="padding:14px;background:var(--card2);border-radius:var(--radius-sm);border:1px solid var(--border)">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin-bottom:8px">Cost Estimate</div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>DIY parts</span><span style="font-weight:700;color:#1baf7a">${fmtMoney(g.costDiyMin)}–${fmtMoney(g.costDiyMax)}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px"><span>Workshop</span><span style="font-weight:700;color:var(--accent)">${fmtMoney(g.costShopMin)}–${fmtMoney(g.costShopMax)}</span></div>
+        </div>
+      </div>`:''}
+      <div class="section-title mb-12">Step-by-Step</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        ${g.steps.map((s,i)=>`<div style="display:flex;gap:12px;padding:12px 14px;background:var(--card2);border-radius:var(--radius-sm);border:1px solid var(--border)">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent-border);color:var(--accent);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
+          <div style="font-size:13px;line-height:1.6">${s}</div>
+        </div>`).join('')}
+      </div>
+      <div class="alert alert-warning"><div class="alert-icon">⚠️</div><div class="alert-text"><strong>Safety note</strong><span>Always work on level ground with the handbrake on, use proper axle stands (never a jack alone), and stop and consult a mechanic if you're unsure.</span></div></div>
+      <div class="section-title mb-8">Find Parts</div>
+      <div class="link-list mb-16">${partsLinks.map(l=>`<a class="link-row" href="${l.url}" target="_blank" rel="noopener">🛒 Search on ${l.name}<span style="color:var(--muted)">↗</span></a>`).join('')}</div>
+      <button class="btn btn-ghost" onclick="showPage('mechanics')">Prefer a professional? Find a mechanic →</button>
+    </div>
+  `;
+}
+function partSearchLinks(query, vehicle){
+  const q = encodeURIComponent(`${vehicle.year||''} ${vehicle.make||''} ${vehicle.model||''} ${query}`.trim());
+  return [
+    {name:'Repco', url:`https://www.repco.com.au/search?q=${q}`},
+    {name:'Supercheap Auto', url:`https://www.supercheapauto.com.au/search?q=${q}`},
+    {name:'eBay Motors AU', url:`https://www.ebay.com.au/sch/i.html?_nkw=${q}`},
+    {name:'Amazon AU', url:`https://www.amazon.com.au/s?k=${q}`},
+  ];
+}
+
+/* ============================= FUEL LOG ============================= */
+function renderFuel(v){
+  const fuel = getFuelStats(v);
+  const logsSorted = [...v.fuelLogs].sort((a,b)=> new Date(b.date)-new Date(a.date));
+  const monthlyKeys = Object.keys(fuel.monthly).sort().slice(-6);
+  const maxMonthly = Math.max(...monthlyKeys.map(k=>fuel.monthly[k]), 1);
+
+  $('#page-fuel').innerHTML = `
+    <div class="page-header header-row">
+      <div><div class="page-title">Fuel Log</div><div class="page-sub">Track fill-ups and real computed economy</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="exportCsv('fuel')">⬇️ Export CSV</button>
+        <button class="btn btn-primary btn-sm" onclick="openFuelModal()">+ Add Fill-up</button>
+      </div>
+    </div>
+    <div class="grid-4 mb-24">
+      <div class="stat-card"><div class="stat-label">Avg L/100km</div><div class="stat-value">${fuel.avgL100?fuel.avgL100.toFixed(1):'—'}</div><div class="stat-sub">${fuel.consumptions.length} intervals</div></div>
+      <div class="stat-card"><div class="stat-label">Cost / km</div><div class="stat-value">${fuel.costPerKm?'$'+fuel.costPerKm.toFixed(3):'—'}</div><div class="stat-sub">Across logged range</div></div>
+      <div class="stat-card"><div class="stat-label">Total Spend</div><div class="stat-value">${fmtMoney(fuel.totalCost)}</div><div class="stat-sub">${v.fuelLogs.length} fill-ups</div></div>
+      <div class="stat-card"><div class="stat-label">Total Litres</div><div class="stat-value">${fmtNum(fuel.totalLiters)}</div><div class="stat-sub">Logged</div></div>
+    </div>
+    <div class="grid-2-1">
+      <div class="card">
+        <div class="section-title mb-16">Fill-up History</div>
+        <div style="display:flex;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);padding-bottom:8px;border-bottom:1px solid var(--border);gap:12px">
+          <div style="width:70px">Date</div><div style="flex:1">Station</div><div style="width:70px;text-align:right">KM</div><div style="width:55px;text-align:right">Litres</div><div style="width:60px;text-align:right">Cost</div><div style="width:24px"></div>
+        </div>
+        ${logsSorted.length ? logsSorted.map(l=>`
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div style="width:70px;font-size:11px;color:var(--muted)">${fmtDate(l.date)}</div>
+            <div style="flex:1;font-size:13px">${escapeHtml(l.station||'—')}</div>
+            <div style="width:70px;text-align:right;font-size:12px;color:var(--muted)">${fmtNum(l.odometer)}</div>
+            <div style="width:55px;text-align:right;font-size:12px;color:var(--muted)">${l.liters}L</div>
+            <div style="width:60px;text-align:right;font-size:13px;font-weight:600">${fmtMoney(l.cost)}</div>
+            <button class="icon-btn" style="width:24px" onclick="deleteFuel('${v.id}','${l.id}')">🗑️</button>
+          </div>`).join('') : '<div style="color:var(--muted);font-size:13px;padding:16px 0">No fill-ups logged yet.</div>'}
+      </div>
+      <div>
+        <div class="card mb-16">
+          <div class="section-title mb-12">Monthly Spend</div>
+          <div class="bar-chart">${monthlyKeys.length ? monthlyKeys.map(k=>{
+            const val = fuel.monthly[k]; const h = Math.max((val/maxMonthly)*100,6);
+            const label = new Date(k+'-01').toLocaleDateString('en-AU',{month:'short'});
+            return `<div class="bar-wrap"><div class="bar" style="height:${h}%" title="${fmtMoney(val)}"></div><div class="bar-label">${label}</div></div>`;
+          }).join('') : '<div style="color:var(--muted);font-size:12px">Not enough data yet</div>'}</div>
+        </div>
+        <div class="card">
+          <div class="section-title mb-12">Stations Used</div>
+          ${stationBreakdown(v)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+function stationBreakdown(v){
+  const byStation = {};
+  v.fuelLogs.forEach(l=>{ const key = l.station||'Unknown'; if(!byStation[key]) byStation[key]={count:0, totalPerL:0, n:0}; byStation[key].count++; if(l.liters>0){ byStation[key].totalPerL += (l.cost/l.liters); byStation[key].n++; } });
+  const rows = Object.entries(byStation).map(([name,d])=>({name, avgPrice: d.n? d.totalPerL/d.n : null, count:d.count})).sort((a,b)=> (a.avgPrice||99)-(b.avgPrice||99));
+  if(!rows.length) return '<div style="color:var(--muted);font-size:13px">No data yet</div>';
+  return rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:13px">${escapeHtml(r.name)} <span style="color:var(--muted);font-size:11px">(${r.count})</span></div><div style="font-size:13px;font-weight:700">${r.avgPrice?'$'+r.avgPrice.toFixed(2)+'/L':'—'}</div></div>`).join('');
+}
+async function deleteFuel(vid, fid){
+  const v = getVehicle(vid);
+  v.fuelLogs = v.fuelLogs.filter(f=>f.id!==fid);
+  await saveState(true);
+  renderAll();
+  showToast('Fill-up deleted', 'success');
+}
+
+/* ============================= MODIFICATIONS (illustrative — clearly labeled) ============================= */
+function renderMods(v){
+  const isElectric = (v.fuelType||'').toLowerCase().includes('electric');
+  const mods = isElectric ? MODS_EV : MODS_ICE;
+  $('#page-mods').innerHTML = `
+    <div class="page-header"><div class="page-title">Modification Ideas</div><div class="page-sub">General upgrade paths for a ${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)}</div></div>
+    <div class="alert alert-warning"><div class="alert-icon">⚠️</div><div class="alert-text"><strong>These figures are illustrative, typical ranges — not vehicle-specific dyno data</strong><span>There's no free public API for per-VIN horsepower gains. For real numbers, get a quote or dyno session from a tuner (see Find Mechanics).</span></div></div>
+    <div class="grid-2" style="gap:14px">
+      ${mods.map(m=>`
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px">
+            <div><div style="font-size:14px;font-weight:700">${m.name}</div><div style="font-size:12px;color:var(--muted);margin-top:3px">${m.note}</div></div>
+            <div style="font-size:13px;font-weight:700;color:var(--accent)">${m.price}</div>
+          </div>
+          ${m.gain?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:12px;color:var(--muted)">${m.before}</span><span style="color:var(--muted)">→</span><span style="font-size:13px;font-weight:700;color:#1baf7a">${m.after}</span><span style="font-size:11px;color:#1baf7a;background:rgba(27,175,122,0.12);padding:2px 7px;border-radius:5px;font-weight:700">${m.gain}</span></div>`:''}
+          <div style="font-size:11px;color:var(--muted)">Difficulty: ${'⭐'.repeat(m.difficulty)} • ${m.install}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">${m.legal}</div>
+          <div style="margin-top:10px">${partSearchLinks(m.name, v).slice(0,2).map(l=>`<a href="${l.url}" target="_blank" rel="noopener" style="font-size:12px;color:var(--accent);margin-right:14px">Search ${l.name} ↗</a>`).join('')}</div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+const MODS_ICE = [
+  {name:'Cold Air Intake', note:'Improves airflow', price:'$200–$350', before:'Stock', after:'+8–15hp typical', gain:'~+10hp', difficulty:1, install:'DIY ~30 min', legal:'Generally road-legal — check your state\'s modification rules before fitting.'},
+  {name:'Cat-back Exhaust', note:'Reduces backpressure', price:'$800–$1800', before:'Stock', after:'+10–20hp typical', gain:'~+15hp', difficulty:2, install:'Workshop recommended', legal:'Must meet local noise/emissions rules — get an engineer\'s cert if required in your state.'},
+  {name:'Lowering Springs', note:'Improves handling, changes stance', price:'$300–$500', before:'Stock ride height', after:'25–35mm lower', gain:null, difficulty:3, install:'Workshop recommended', legal:'Ride height changes often require an engineering certificate — check local rules.'},
+  {name:'ECU Remap / Tune', note:'Recalibrates fuel & timing maps', price:'$500–$1200', before:'Stock', after:'+15–30hp typical', gain:'~+20hp', difficulty:3, install:'Requires a qualified tuner', legal:'May affect warranty and emissions compliance — confirm with your tuner and insurer.'}
+];
+const MODS_EV = [
+  {name:'Performance Wheel & Tyre Package', note:'Lighter wheels, better grip', price:'$1500–$3000', before:null, after:null, gain:null, difficulty:2, install:'Workshop fitting recommended', legal:'Generally road-legal — confirm tyre load rating matches vehicle spec.'},
+  {name:'Suspension Upgrade (coilovers)', note:'Improves handling and stance', price:'$1200–$2500', before:null, after:null, gain:null, difficulty:3, install:'Workshop recommended', legal:'Ride height changes may need an engineering certificate.'},
+  {name:'Software Performance Unlock', note:'Manufacturer or third-party unlock where available', price:'$500–$2000', before:'Stock', after:'Varies by model', gain:'Model-dependent', difficulty:2, install:'Dealer or specialist required', legal:'Check manufacturer warranty terms before applying any third-party unlock.'},
+  {name:'Aero Kit', note:'Reduces drag / adds downforce', price:'$400–$1500', before:null, after:null, gain:null, difficulty:2, install:'DIY to workshop', legal:'Generally road-legal if OEM-fit; custom kits may need certification.'}
+];
+
+/* ============================= MECHANICS ============================= */
+function renderMechanics(){
+  const loc = appState.userLocation;
+  $('#page-mechanics').innerHTML = `
+    <div class="page-header"><div class="page-title">Find Mechanics</div><div class="page-sub">Real Google Maps search — opens actual nearby results</div></div>
+    <div class="alert alert-info"><div class="alert-icon">ℹ️</div><div class="alert-text"><strong>Honest note</strong><span>There's no live mechanic-marketplace API wired up here, so we can't show real-time quotes/availability. These buttons open genuine Google Maps searches near your location instead.</span></div></div>
+    <div class="card mb-20">
+      <div class="section-title mb-12">Your Location</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input class="form-input" id="loc-input" style="max-width:280px" placeholder="e.g. Melbourne, VIC" value="${loc && loc.text ? escapeHtml(loc.text):''}">
+        <button class="btn btn-ghost btn-sm" onclick="setLocationText()">Use this location</button>
+        <button class="btn btn-primary btn-sm" onclick="useGeolocation()">📍 Use my current location</button>
+      </div>
+      <small class="hint" id="loc-status">${loc? (loc.coords? 'Using your device location.' : 'Using typed location.') : 'No location set — using "Melbourne, VIC" by default.'}</small>
+    </div>
+    <div class="grid-2" style="gap:14px">
+      ${mechanicSpecialties().map(s=>`
+        <a class="link-row" href="${mechanicMapsLink(s)}" target="_blank" rel="noopener" style="padding:16px 18px">
+          <div><div style="font-size:14px;font-weight:700">${s.label}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${s.desc}</div></div>
+          <div style="color:var(--muted)">Open Maps ↗</div>
+        </a>`).join('')}
+    </div>
+  `;
+}
+function mechanicSpecialties(){
+  return [
+    {label:'General Mechanic', desc:'Servicing & general repairs near you'},
+    {label:'Brake & Suspension Specialist', desc:'Brakes, shocks, alignment'},
+    {label:'Tyre Shop', desc:'New tyres, rotation, balancing'},
+    {label:'Mobile Mechanic', desc:'Comes to your location'},
+    {label:'Auto Electrician', desc:'Batteries, wiring, diagnostics'},
+    {label:'Performance / Tuning Workshop', desc:'Mods, dyno, ECU tuning'},
+  ];
+}
+function mechanicMapsLink(specialty){
+  const loc = appState.userLocation;
+  let query;
+  if(loc && loc.coords){
+    query = encodeURIComponent(specialty.label + ' near me');
+    return `https://www.google.com/maps/search/${query}/@${loc.coords.lat},${loc.coords.lng},14z`;
+  }
+  const locText = (loc && loc.text) ? loc.text : 'Melbourne, VIC';
+  query = encodeURIComponent(specialty.label + ' near ' + locText);
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}
+function setLocationText(){
+  const val = $('#loc-input').value.trim();
+  if(!val){ showToast('Enter a location first', 'error'); return; }
+  appState.userLocation = {text: val, coords: null};
+  saveState(true);
+  renderMechanics();
+  showToast('✓ Location set', 'success');
+}
+function useGeolocation(){
+  if(!navigator.geolocation){ showToast('⚠️ Geolocation not supported by this browser', 'error'); return; }
+  showToast('Requesting location…');
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      appState.userLocation = {coords:{lat:pos.coords.latitude, lng:pos.coords.longitude}, text:null};
+      saveState(true);
+      renderMechanics();
+      showToast('✓ Using your current location', 'success');
+    },
+    err=>{ showToast('⚠️ Could not get location: ' + err.message, 'error'); },
+    {timeout:8000}
+  );
+}
+
+/* ============================= CAR VALUE ============================= */
+function estimateValue(v, condition, accidents, mods){
+  const key = `${(v.make||'').toLowerCase()} ${(v.model||'').toLowerCase()}`.trim();
+  let base = DEFAULT_MSRP;
+  for(const k in BASE_MSRP){ if(key.includes(k)) { base = BASE_MSRP[k]; break; } }
+  const year = parseInt(v.year) || new Date().getFullYear()-5;
+  const age = Math.max(new Date().getFullYear() - year, 0);
+  let value = base * Math.pow(0.85, age);
+  const expectedKm = age * 15000;
+  const kmDiff = (v.odometer||0) - expectedKm;
+  value -= kmDiff * 0.08;
+  const condMult = {excellent:1.05, good:1.0, fair:0.9, poor:0.75}[condition] ?? 1.0;
+  value *= condMult;
+  const accMult = {none:1.0, minor:0.92, major:0.8}[accidents] ?? 1.0;
+  value *= accMult;
+  const modMult = {stock:1.0, minor:0.97, heavy:0.9}[mods] ?? 1.0;
+  value *= modMult;
+  value = Math.max(value, 1500);
+  return {min: value*0.9, mid: value, max: value*1.1, base, age};
+}
+function renderValue(v){
+  $('#page-value').innerHTML = `
+    <div class="page-header"><div class="page-title">Car Value Estimator</div><div class="page-sub">A real depreciation-model calculation — not a live market scrape</div></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title mb-16">Vehicle Details</div>
+        <div class="form-group"><label class="form-label">Make / Model</label><input class="form-input" id="val-makemodel" value="${escapeHtml(v.make)} ${escapeHtml(v.model)}" disabled></div>
+        <div class="grid-2" style="gap:12px">
+          <div class="form-group"><label class="form-label">Year</label><input class="form-input" id="val-year" value="${escapeHtml(v.year)}"></div>
+          <div class="form-group"><label class="form-label">Odometer</label><input class="form-input" id="val-odo" value="${v.odometer}"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Condition</label>
+          <select class="form-input" id="val-condition"><option value="excellent">Excellent</option><option value="good" selected>Good</option><option value="fair">Fair</option><option value="poor">Poor</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Accident History</label>
+          <select class="form-input" id="val-accidents"><option value="none">No accidents</option><option value="minor">1 minor</option><option value="major">1+ major</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Modifications</label>
+          <select class="form-input" id="val-mods"><option value="stock">Stock</option><option value="minor">Minor mods</option><option value="heavy">Heavily modified</option></select>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="runValueCalc()">Calculate Value</button>
+      </div>
+      <div class="card">
+        <div class="section-title mb-20">Market Value Estimate</div>
+        <div id="value-result">
+          <div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">Fill in the details and click Calculate.</div>
+        </div>
+      </div>
+    </div>
+  `;
+  runValueCalc();
+}
+function runValueCalc(){
+  const v = getSelected();
+  const year = $('#val-year').value;
+  const odo = parseFloat($('#val-odo').value) || v.odometer;
+  const condition = $('#val-condition').value;
+  const accidents = $('#val-accidents').value;
+  const mods = $('#val-mods').value;
+  const vv = {...v, year, odometer: odo};
+  const est = estimateValue(vv, condition, accidents, mods);
+  $('#value-result').innerHTML = `
+    <div class="grid-3" style="gap:12px;margin-bottom:20px">
+      <div style="text-align:center;padding:16px;background:rgba(232,89,60,0.08);border-radius:var(--radius-sm);border:1px solid rgba(232,89,60,0.2)"><div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase">Minimum</div><div style="font-size:20px;font-weight:800;color:var(--accent)">${fmtMoney(est.min)}</div></div>
+      <div style="text-align:center;padding:16px;background:rgba(42,120,214,0.1);border-radius:var(--radius-sm);border:2px solid rgba(42,120,214,0.3)"><div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase">Estimated</div><div style="font-size:22px;font-weight:800;color:#2a78d6">${fmtMoney(est.mid)}</div></div>
+      <div style="text-align:center;padding:16px;background:rgba(27,175,122,0.08);border-radius:var(--radius-sm);border:1px solid rgba(27,175,122,0.2)"><div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase">Maximum</div><div style="font-size:20px;font-weight:800;color:#1baf7a">${fmtMoney(est.max)}</div></div>
+    </div>
+    <div class="value-bar"><div class="value-indicator" style="left:50%"></div></div>
+    <div class="value-labels"><span>${fmtMoney(est.min)}</span><span style="color:#2a78d6;font-weight:700">${fmtMoney(est.mid)} est.</span><span>${fmtMoney(est.max)}</span></div>
+    <small class="hint" style="margin-top:16px">Method: starts from a typical new-car price for this model, applies ~15%/year depreciation, then adjusts for odometer vs. expected km, condition, accident history and modifications. For a real sale price, cross-check with actual listings (Carsales, Facebook Marketplace) for your exact model.</small>
+  `;
+}
+
+/* ============================= SECURITY (honest simulation) ============================= */
+function renderTheft(v){
+  const s = v.security || {gps:false, geofence:false, movement:false};
+  $('#page-theft').innerHTML = `
+    <div class="page-header"><div class="page-title">Security & Theft Protection</div><div class="page-sub">What's real here, and what needs hardware</div></div>
+    <div class="alert alert-warning"><div class="alert-icon">⚠️</div><div class="alert-text"><strong>This page is a settings/demo panel, not live tracking</strong><span>Real GPS tracking, geofencing and movement alerts need a physical GPS tracker or OBD2 dongle reporting to a backend — that hardware/service isn't connected here. The toggles below just save your preferences.</span></div></div>
+    <div class="card">
+      <div class="section-title mb-16">Preferences</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        ${secToggle(v,'gps','GPS Tracking','Would show live location if a tracker were connected')}
+        ${secToggle(v,'geofence','Geofence Alerts','Notify if the car leaves a set radius')}
+        ${secToggle(v,'movement','Movement Detection','Alert on unexpected movement')}
+      </div>
+    </div>
+    <div class="card mb-16" style="margin-top:16px">
+      <div class="section-title mb-12">To make this real</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.8">
+        1. Get an OBD2 GPS tracker (e.g. a commercial fleet-tracking dongle) with a data plan.<br>
+        2. The tracker's provider gives you an API or webhook for live location.<br>
+        3. A small backend service would poll that API and push updates here.<br>
+        This app has no backend, so step 3 isn't possible in a static page — it would need a server component.
+      </div>
+    </div>
+  `;
+}
+function secToggle(v, key, label, desc){
+  const on = v.security && v.security[key];
+  return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--card2);border-radius:var(--radius-sm);border:1px solid var(--border)">
+    <div><div style="font-size:13px;font-weight:600">${label}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${desc}</div></div>
+    <button class="btn ${on?'btn-primary':'btn-ghost'} btn-sm" onclick="toggleSecurity('${v.id}','${key}')">${on?'On':'Off'}</button>
+  </div>`;
+}
+async function toggleSecurity(vid, key){
+  const v = getVehicle(vid);
+  if(!v.security) v.security = {};
+  v.security[key] = !v.security[key];
+  await saveState(true);
+  renderTheft(v);
+}
+
+/* ============================= MODALS: VEHICLE ============================= */
+function openVehicleModal(editId){
+  const editing = editId ? getVehicle(editId) : null;
+  const v = editing || {};
+  lastVinExtra = editing ? {bodyClass: editing.bodyClass, plantCountry: editing.plantCountry, plantCity: editing.plantCity, manufacturer: editing.manufacturer} : {};
+  $('#modal-box').innerHTML = `
+    <div class="modal-head"><div class="modal-title">${editing?'Edit Vehicle':'Add Vehicle'}</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="form-group">
+      <label class="form-label">VIN (optional — decodes real vehicle data)</label>
+      <div style="display:flex;gap:8px">
+        <input class="vin-input" id="veh-vin" maxlength="17" placeholder="17-character VIN" value="${escapeHtml(v.vin||'')}" oninput="this.value=this.value.toUpperCase()">
+        <button class="btn btn-primary" style="white-space:nowrap" onclick="doVinLookup()" id="vin-lookup-btn">Decode VIN</button>
+      </div>
+      <div id="vin-status" style="margin-top:8px;font-size:12px"></div>
+    </div>
+    <div class="grid-2" style="gap:0 16px">
+      <div class="form-group"><label class="form-label">Make</label><input class="form-input" id="veh-make" value="${escapeHtml(v.make||'')}"></div>
+      <div class="form-group"><label class="form-label">Model</label><input class="form-input" id="veh-model" value="${escapeHtml(v.model||'')}"></div>
+      <div class="form-group"><label class="form-label">Year</label><input class="form-input" id="veh-year" value="${escapeHtml(v.year||'')}"></div>
+      <div class="form-group"><label class="form-label">Trim</label><input class="form-input" id="veh-trim" value="${escapeHtml(v.trim||'')}"></div>
+      <div class="form-group"><label class="form-label">Engine</label><input class="form-input" id="veh-engine" value="${escapeHtml(v.engine||'')}"></div>
+      <div class="form-group"><label class="form-label">Transmission</label><input class="form-input" id="veh-transmission" value="${escapeHtml(v.transmission||'')}"></div>
+      <div class="form-group"><label class="form-label">Drivetrain</label><input class="form-input" id="veh-drivetrain" value="${escapeHtml(v.drivetrain||'')}"></div>
+      <div class="form-group"><label class="form-label">Fuel Type</label><input class="form-input" id="veh-fueltype" value="${escapeHtml(v.fuelType||'')}"></div>
+      <div class="form-group"><label class="form-label">Colour</label><input class="form-input" id="veh-color" value="${escapeHtml(v.color||'')}"></div>
+      <div class="form-group"><label class="form-label">Plate</label><input class="form-input" id="veh-plate" value="${escapeHtml(v.plate||'')}"></div>
+      <div class="form-group"><label class="form-label">State</label>
+        <select class="form-input" id="veh-regstate">${['VIC','NSW','QLD','WA','SA','TAS','ACT','NT'].map(s=>`<option ${v.regState===s?'selected':''}>${s}</option>`).join('')}</select>
+      </div>
+      <div class="form-group"><label class="form-label">Current Odometer (km)</label><input class="form-input" id="veh-odometer" value="${v.odometer!=null?v.odometer:''}"></div>
+      <div class="form-group"><label class="form-label">Purchase Date</label><input class="form-input" type="date" id="veh-purchasedate" value="${v.purchaseDate||''}"></div>
+      <div class="form-group"><label class="form-label">Odometer at Purchase</label><input class="form-input" id="veh-purchaseodo" value="${v.purchaseOdometer!=null?v.purchaseOdometer:''}"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveVehicle('${editId||''}')">Save Vehicle</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>
+  `;
+  openModal();
+}
+async function doVinLookup(){
+  const vin = $('#veh-vin').value;
+  const btn = $('#vin-lookup-btn');
+  const status = $('#vin-status');
+  btn.disabled = true; btn.textContent = 'Decoding…';
+  status.innerHTML = '<span style="color:var(--muted)">Contacting NHTSA vPIC vehicle database…</span>';
+  const result = await decodeVin(vin);
+  btn.disabled = false; btn.textContent = 'Decode VIN';
+  if(result.error){
+    status.innerHTML = `<span style="color:var(--accent)">⚠️ ${escapeHtml(result.error)}</span>`;
+    return;
+  }
+  $('#veh-make').value = result.make;
+  $('#veh-model').value = result.model;
+  $('#veh-year').value = result.year;
+  $('#veh-trim').value = result.trim;
+  $('#veh-engine').value = result.engine;
+  $('#veh-transmission').value = result.transmission;
+  $('#veh-drivetrain').value = result.drivetrain;
+  $('#veh-fueltype').value = result.fuelType;
+  lastVinExtra = {bodyClass: result.bodyClass, plantCountry: result.plantCountry, plantCity: result.plantCity, manufacturer: result.manufacturer};
+  status.innerHTML = `<span style="color:var(--green)">✓ Decoded successfully from the official US NHTSA VIN database (make/model/year/engine confirmed).</span>`;
+}
+async function saveVehicle(editId){
+  const data = {
+    vin: $('#veh-vin').value.trim(), make: $('#veh-make').value.trim(), model: $('#veh-model').value.trim(),
+    year: $('#veh-year').value.trim(), trim: $('#veh-trim').value.trim(), engine: $('#veh-engine').value.trim(),
+    transmission: $('#veh-transmission').value.trim(), drivetrain: $('#veh-drivetrain').value.trim(),
+    fuelType: $('#veh-fueltype').value.trim(), color: $('#veh-color').value.trim(), plate: $('#veh-plate').value.trim(),
+    regState: $('#veh-regstate').value, odometer: parseFloat($('#veh-odometer').value)||0,
+    purchaseDate: $('#veh-purchasedate').value || null, purchaseOdometer: $('#veh-purchaseodo').value!=='' ? parseFloat($('#veh-purchaseodo').value) : null,
+    odometerDate: today()
+  };
+  if(!data.make || !data.model){ showToast('⚠️ Please enter at least make and model', 'error'); return; }
+  Object.assign(data, lastVinExtra);
+  if(editId){
+    const v = getVehicle(editId);
+    Object.assign(v, data);
+  } else {
+    const v = {...data, id: uid('veh'), bodyClass: data.bodyClass||'', plantCountry: data.plantCountry||'', plantCity: data.plantCity||'', manufacturer: data.manufacturer||'', services:[], fuelLogs:[], documents:[]};
+    appState.vehicles.push(v);
+    appState.selectedId = v.id;
+  }
+  await saveState(true);
+  closeModal();
+  renderAll();
+  showToast('✓ Vehicle saved', 'success');
+}
+async function deleteVehicle(id){
+  if(!confirm('Delete this vehicle and all its records? This cannot be undone.')) return;
+  appState.vehicles = appState.vehicles.filter(v=>v.id!==id);
+  if(appState.selectedId===id){ appState.selectedId = appState.vehicles.length ? appState.vehicles[0].id : null; }
+  await saveState(true);
+  currentPage = 'dashboard';
+  renderAll();
+  showToast('Vehicle deleted', 'success');
+}
+
+/* ============================= MODALS: SERVICE / FUEL ============================= */
+function openServiceModal(prefillType){
+  const v = getSelected();
+  $('#modal-box').innerHTML = `
+    <div class="modal-head"><div class="modal-title">Log Service</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="form-group"><label class="form-label">Service Type</label>
+      <select class="form-input" id="svc-type">
+        ${SERVICE_INTERVALS.map(s=>`<option value="${s.key}" ${prefillType===s.key?'selected':''}>${s.name}</option>`).join('')}
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="form-group" id="svc-other-wrap" style="display:none"><label class="form-label">Describe Service</label><input class="form-input" id="svc-other-name" placeholder="e.g. Wheel alignment"></div>
+    <div class="grid-2" style="gap:0 16px">
+      <div class="form-group"><label class="form-label">Odometer (km)</label><input class="form-input" id="svc-odo" value="${v.odometer}"></div>
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="svc-date" value="${today()}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Workshop / Location</label><input class="form-input" id="svc-shop" placeholder="e.g. VicAuto Fitzroy"></div>
+    <div class="form-group"><label class="form-label">Cost ($)</label><input class="form-input" id="svc-cost" placeholder="e.g. 120"></div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" rows="2" id="svc-notes" placeholder="Any additional notes..."></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveService('${v.id}')">Save Service</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>
+  `;
+  $('#svc-type').addEventListener('change', e=>{ $('#svc-other-wrap').style.display = e.target.value==='other' ? 'block':'none'; });
+  if(prefillType==='other') $('#svc-other-wrap').style.display='block';
+  openModal();
+}
+async function saveService(vid){
+  const v = getVehicle(vid);
+  const typeKey = $('#svc-type').value;
+  const interval = SERVICE_INTERVALS.find(s=>s.key===typeKey);
+  const typeName = typeKey==='other' ? ($('#svc-other-name').value.trim() || 'Other Service') : interval.name;
+  const odo = parseFloat($('#svc-odo').value);
+  const date = $('#svc-date').value;
+  if(!odo || !date){ showToast('⚠️ Odometer and date are required', 'error'); return; }
+  v.services.push({id: uid('svc'), type: typeKey, typeName, date, odometer: odo, cost: parseFloat($('#svc-cost').value)||0, shop: $('#svc-shop').value.trim(), notes: $('#svc-notes').value.trim()});
+  if(odo > v.odometer){ v.odometer = odo; v.odometerDate = date; }
+  await saveState(true);
+  closeModal();
+  renderAll();
+  showToast('✓ Service logged', 'success');
+}
+function openFuelModal(){
+  const v = getSelected();
+  $('#modal-box').innerHTML = `
+    <div class="modal-head"><div class="modal-title">Add Fill-up</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="grid-2" style="gap:0 16px">
+      <div class="form-group"><label class="form-label">Odometer (km)</label><input class="form-input" id="fuel-odo" value="${v.odometer}"></div>
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="fuel-date" value="${today()}"></div>
+    </div>
+    <div class="grid-2" style="gap:0 16px">
+      <div class="form-group"><label class="form-label">Litres</label><input class="form-input" id="fuel-liters" placeholder="e.g. 42"></div>
+      <div class="form-group"><label class="form-label">Total Cost ($)</label><input class="form-input" id="fuel-cost" placeholder="e.g. 73.50"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Station</label><input class="form-input" id="fuel-station" placeholder="e.g. Shell Fitzroy"></div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveFuel('${v.id}')">Save Fill-up</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>
+  `;
+  openModal();
+}
+async function saveFuel(vid){
+  const v = getVehicle(vid);
+  const odo = parseFloat($('#fuel-odo').value);
+  const liters = parseFloat($('#fuel-liters').value);
+  const cost = parseFloat($('#fuel-cost').value);
+  const date = $('#fuel-date').value;
+  if(!odo || !liters || !cost || !date){ showToast('⚠️ Please fill in odometer, litres, cost and date', 'error'); return; }
+  v.fuelLogs.push({id: uid('fuel'), date, odometer: odo, liters, cost, station: $('#fuel-station').value.trim()});
+  if(odo > v.odometer){ v.odometer = odo; v.odometerDate = date; }
+  await saveState(true);
+  closeModal();
+  renderAll();
+  showToast('✓ Fill-up logged', 'success');
+}
+
+/* ============================= MODAL HELPERS ============================= */
+function openModal(){ $('#modal-overlay').classList.add('open'); }
+function closeModal(){ $('#modal-overlay').classList.remove('open'); }
+$('#modal-overlay').addEventListener('click', e=>{ if(e.target.id==='modal-overlay') closeModal(); });
+
+/* ============================= CSV EXPORT ============================= */
+function exportCsv(type){
+  const v = getSelected();
+  let rows, filename;
+  if(type==='services'){
+    rows = [['Date','Type','Odometer(km)','Cost','Shop','Notes']];
+    v.services.forEach(s=> rows.push([s.date, s.typeName, s.odometer, s.cost, s.shop, s.notes]));
+    filename = `${v.make}_${v.model}_services.csv`;
+  } else {
+    rows = [['Date','Odometer(km)','Litres','Cost','Station']];
+    v.fuelLogs.forEach(f=> rows.push([f.date, f.odometer, f.liters, f.cost, f.station]));
+    filename = `${v.make}_${v.model}_fuel.csv`;
+  }
+  const csv = rows.map(r=> r.map(c=> `"${(c??'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('✓ CSV downloaded', 'success');
+}
+
+/* ============================= INIT ============================= */
+loadState();
+showPage('dashboard');
+</script>
+</body>
+</html>
