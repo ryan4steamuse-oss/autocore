@@ -418,12 +418,16 @@ async function loadState(){
 }
 async function saveState(silent){
   try {
-    const result = await window.storage.set(STORAGE_KEY, JSON.stringify(appState), false);
-    if(!result) throw new Error('storage returned null');
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(appState)
+    );
+
     if(!silent) showToast('✓ Saved', 'success');
+
   } catch(e){
     console.error('Save failed', e);
-    showToast('⚠️ Could not save — storage error', 'error');
+    showToast('⚠️ Could not save', 'error');
   }
 }
 
