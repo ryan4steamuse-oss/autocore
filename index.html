@@ -1304,5 +1304,25 @@ function exportCsv(){
 loadState();
 showPage('dashboard');
 </script>
+ <script type="module">
+
+import { createClient } from 
+'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+
+const supabaseUrl = "https://utgenxorqwtswymikedn.supabase.co/rest/v1/"
+
+const supabaseKey = "sb_publishable_uezbv_39pcs9l7eQ1zDcyw_kBamfa7B"
+
+
+const supabase = createClient(
+    supabaseUrl,
+    supabaseKey
+)
+
+
+console.log("Supabase connected")
+
+</script> 
 </body>
 </html>
