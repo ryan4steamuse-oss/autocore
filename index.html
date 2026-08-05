@@ -390,18 +390,30 @@ function showToast(msg, type){
 /* ============================= STORAGE ============================= */
 async function loadState(){
   try {
-    const res = await window.storage.get(STORAGE_KEY, false);
-    if(res && res.value){
-      appState = JSON.parse(res.value);
+    const saved = localStorage.getItem(STORAGE_KEY);
+
+    if(saved){
+      appState = JSON.parse(saved);
     } else {
       throw new Error('no data');
     }
+
   } catch(e){
-    appState = { vehicles: [seedVehicle()], selectedId: null, userLocation: null };
+    appState = { 
+      vehicles: [seedVehicle()], 
+      selectedId: null, 
+      userLocation: null 
+    };
+
     appState.selectedId = appState.vehicles[0].id;
+
     await saveState(true);
   }
-  if(!appState.selectedId && appState.vehicles.length){ appState.selectedId = appState.vehicles[0].id; }
+
+  if(!appState.selectedId && appState.vehicles.length){
+    appState.selectedId = appState.vehicles[0].id;
+  }
+
   renderAll();
 }
 async function saveState(silent){
