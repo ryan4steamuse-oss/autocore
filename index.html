@@ -982,6 +982,10 @@ function renderProfile(v){
         <button class="btn btn-ghost btn-sm" onclick="deleteVehicle('${v.id}')" style="color:var(--accent)">Delete Vehicle</button>
       </div>
     </div>
+    <div class="card mb-20" id="car-photo-card">
+      <div id="car-photo-wrap" style="display:flex;align-items:center;justify-content:center;min-height:200px;background:var(--card2);border-radius:var(--radius-sm);color:var(--muted);font-size:13px">Loading photo…</div>
+      <div style="text-align:center;margin-top:10px;font-size:13px;font-weight:600" id="car-photo-caption">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)}</div>
+    </div>
     <div class="grid-2 mb-20">
       <div class="card">
         <div class="section-title mb-16">Vehicle Details</div>
@@ -1031,9 +1035,68 @@ function renderProfile(v){
       <small class="hint" style="margin-top:12px">Accident/write-off history requires a paid vehicle-history check (e.g. a PPSR/state check) — that lookup isn't wired to a live API here, so it isn't shown automatically.</small>
     </div>
   `;
+  loadCarPhoto(v);
 }
 function profileField(label, value){
   return `<div style="padding:8px 0"><div class="form-label" style="margin-bottom:2px">${label}</div><div style="font-size:13px;font-weight:600">${escapeHtml(value)||'<span style="color:var(--muted);font-weight:400">Not set</span>'}</div></div>`;
+}
+/* ============================= CAR PHOTO (Wikimedia Commons) ============================= */
+const carPhotoCache = {};
+async function loadCarPhoto(v){
+  const wrap = $('#car-photo-wrap');
+  if(!wrap) return;
+  const make = (v.make||'').trim(), model = (v.model||'').trim(), year = (v.year||'').toString().trim();
+  if(!make || !model){
+    wrap.innerHTML = `<div style="padding:40px 0">🚗</div>`;
+    return;
+  }
+  const cacheKey = `${year}|${make}|${model}`.toLowerCase();
+  if(carPhotoCache[cacheKey] !== undefined){
+    renderCarPhoto(wrap, carPhotoCache[cacheKey]);
+    return;
+  }
+  wrap.innerHTML = `<div>Loading photo…</div>`;
+  const queries = [
+    `${year} ${make} ${model}`.trim(),
+    `${make} ${model}`.trim()
+  ];
+  let url = null;
+  for(const q of queries){
+    url = await searchCommonsImage(q);
+    if(url) break;
+  }
+  carPhotoCache[cacheKey] = url;
+  // Only paint the result if the user is still looking at this same vehicle's page.
+  const current = getSelected();
+  if(current && current.id === v.id && $('#car-photo-wrap')){
+    renderCarPhoto($('#car-photo-wrap'), url);
+  }
+}
+function renderCarPhoto(wrap, url){
+  if(url){
+    wrap.innerHTML = `<img src="${url}" alt="Reference photo" style="width:100%;max-height:340px;object-fit:contain;border-radius:var(--radius-sm)" onerror="this.parentElement.innerHTML='<div style=&quot;padding:40px 0&quot;>🚗</div>'">`;
+  } else {
+    wrap.innerHTML = `<div style="padding:40px 0;text-align:center"><div style="font-size:28px;margin-bottom:6px">🚗</div><div>No reference photo found</div></div>`;
+  }
+}
+async function searchCommonsImage(query){
+  try {
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(query + ' filetype:bitmap')}&gsrlimit=6&prop=imageinfo&iiprop=url|mime&iiurlwidth=800&format=json&origin=*`;
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const json = await res.json();
+    const pages = json && json.query && json.query.pages;
+    if(!pages) return null;
+    const candidates = Object.values(pages)
+      .map(p => p.imageinfo && p.imageinfo[0])
+      .filter(info => info && info.mime && info.mime.startsWith('image/') && !info.mime.includes('svg'));
+    if(!candidates.length) return null;
+    const best = candidates[0];
+    return best.thumburl || best.url || null;
+  } catch(e){
+    console.error('Commons image search failed', e);
+    return null;
+  }
 }
 function renderDocuments(v){
   if(!v.documents.length) return `<div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">No documents uploaded yet.</div>`;
