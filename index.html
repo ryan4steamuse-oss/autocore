@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GarageIQ — Vehicle Management</title>
+<title>AutoCore — Vehicle Management</title>
 <script>
 // Apply the saved theme before first paint so there's no flash of the wrong theme.
 (function(){
   try {
-    var raw = localStorage.getItem('garageiq-prefs-v1');
+    var raw = localStorage.getItem('autocore-prefs-v1');
     var theme = 'midnight';
     if(raw){ var p = JSON.parse(raw); if(p && p.settings && p.settings.theme) theme = p.settings.theme; }
     document.documentElement.setAttribute('data-theme', theme);
@@ -226,7 +226,7 @@
 <div class="app" style="display:none">
   <aside class="sidebar">
     <div class="logo">
-      <div class="logo-text">Garage<span>IQ</span></div>
+      <div class="logo-text">Auto<span>Core</span></div>
       <div class="logo-sub">Vehicle Management</div>
     </div>
     <div class="car-selector" id="car-selector"></div>
@@ -311,7 +311,7 @@ const supabaseKey = "sb_publishable_uezbv_39pcs9l7eQ1zDcyw_kBamfa7B";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 /* ============================= CONSTANTS ============================= */
-const PREFS_KEY = 'garageiq-prefs-v1';
+const PREFS_KEY = 'autocore-prefs-v1';
 
 const SERVICE_INTERVALS = [
   {key:'oil', name:'Oil & Filter Change', km:10000, months:12, icon:'🛢️', costMin:75, costMax:150},
@@ -532,7 +532,7 @@ function switchAuthTab(tab){ authTab = tab; renderAuthPage(); }
 function renderAuthPage(){
   $('#auth-overlay').innerHTML = `
     <div class="auth-box">
-      <div class="auth-logo"><div class="logo-text">Garage<span>IQ</span></div><div class="logo-sub">Vehicle Management</div></div>
+      <div class="auth-logo"><div class="logo-text">Auto<span>Core</span></div><div class="logo-sub">Vehicle Management</div></div>
       <div class="auth-card">
         <div class="auth-tabs">
           <button class="auth-tab ${authTab==='signin'?'active':''}" onclick="switchAuthTab('signin')">Sign In</button>
