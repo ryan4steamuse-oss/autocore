@@ -986,6 +986,10 @@ function renderProfile(v){
       <div id="car-photo-wrap" style="display:flex;align-items:center;justify-content:center;min-height:200px;background:var(--card2);border-radius:var(--radius-sm);color:var(--muted);font-size:13px">Loading photo…</div>
       <div style="text-align:center;margin-top:10px;font-size:13px;font-weight:600" id="car-photo-caption">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)}</div>
     </div>
+    <div class="card mb-20" id="car-brief-card">
+      <div class="section-title mb-16">About This Vehicle</div>
+      <div id="car-brief-wrap"><div style="color:var(--muted);font-size:13px">Loading vehicle overview…</div></div>
+    </div>
     <div class="grid-2 mb-20">
       <div class="card">
         <div class="section-title mb-16">Vehicle Details</div>
@@ -1036,6 +1040,7 @@ function renderProfile(v){
     </div>
   `;
   loadCarPhoto(v);
+  loadCarBrief(v);
 }
 function profileField(label, value){
   return `<div style="padding:8px 0"><div class="form-label" style="margin-bottom:2px">${label}</div><div style="font-size:13px;font-weight:600">${escapeHtml(value)||'<span style="color:var(--muted);font-weight:400">Not set</span>'}</div></div>`;
@@ -1097,6 +1102,100 @@ async function searchCommonsImage(query){
     console.error('Commons image search failed', e);
     return null;
   }
+}
+/* ============================= CAR BRIEF (Wikipedia overview + NHTSA-based reliability estimate) ============================= */
+const carBriefCache = {};
+async function loadCarBrief(v){
+  const wrap = $('#car-brief-wrap');
+  if(!wrap) return;
+  const make = (v.make||'').trim(), model = (v.model||'').trim(), year = (v.year||'').toString().trim();
+  if(!make || !model){
+    wrap.innerHTML = `<div style="color:var(--muted);font-size:13px">Add a make and model to see a vehicle overview.</div>`;
+    return;
+  }
+  const cacheKey = `${year}|${make}|${model}`.toLowerCase();
+  if(carBriefCache[cacheKey] !== undefined){
+    renderCarBrief(wrap, carBriefCache[cacheKey]);
+    return;
+  }
+  wrap.innerHTML = `<div style="color:var(--muted);font-size:13px">Loading vehicle overview…</div>`;
+  const [summary, recallsCount, complaintsCount] = await Promise.all([
+    (async () => (await fetchWikipediaSummary(`${year} ${make} ${model}`.trim())) || (await fetchWikipediaSummary(`${make} ${model}`.trim())))(),
+    fetchNhtsaCount('recalls/recallsByVehicle', make, model, year),
+    fetchNhtsaCount('complaints/complaintsByVehicle', make, model, year)
+  ]);
+  const data = { summary, recallsCount, complaintsCount, score: computeReliabilityScore(recallsCount, complaintsCount) };
+  carBriefCache[cacheKey] = data;
+  // Only paint the result if the user is still looking at this same vehicle's page.
+  const current = getSelected();
+  if(current && current.id === v.id && $('#car-brief-wrap')){
+    renderCarBrief($('#car-brief-wrap'), data);
+  }
+}
+async function fetchWikipediaSummary(query){
+  if(!query) return null;
+  try {
+    const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1&prop=extracts|info&exintro=1&explaintext=1&exchars=700&inprop=url&format=json&origin=*`;
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const json = await res.json();
+    const pages = json && json.query && json.query.pages;
+    if(!pages) return null;
+    const page = Object.values(pages)[0];
+    if(!page || !page.extract) return null;
+    return { title: page.title, extract: page.extract, url: page.fullurl || null };
+  } catch(e){
+    console.error('Wikipedia summary fetch failed', e);
+    return null;
+  }
+}
+async function fetchNhtsaCount(endpoint, make, model, year){
+  if(!make || !model || !year) return null;
+  try {
+    const url = `https://api.nhtsa.gov/${endpoint}?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}&modelYear=${encodeURIComponent(year)}`;
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const json = await res.json();
+    if(typeof json.Count === 'number') return json.Count;
+    if(Array.isArray(json.results)) return json.results.length;
+    return null;
+  } catch(e){
+    console.error('NHTSA lookup failed', endpoint, e);
+    return null;
+  }
+}
+function computeReliabilityScore(recallsCount, complaintsCount){
+  if(recallsCount == null && complaintsCount == null) return null;
+  let score = 100;
+  score -= Math.min(30, (recallsCount||0) * 4);
+  score -= Math.min(45, Math.log((complaintsCount||0) + 1) * 9);
+  return Math.round(Math.max(20, Math.min(97, score)));
+}
+function scoreColor(score){
+  if(score >= 75) return 'var(--green)';
+  if(score >= 50) return 'var(--amber)';
+  return 'var(--accent)';
+}
+function renderCarBrief(wrap, data){
+  const { summary, recallsCount, complaintsCount, score } = data;
+  const descHtml = summary
+    ? `<p style="font-size:13px;line-height:1.6;margin:0 0 14px">${escapeHtml(summary.extract)}</p>`
+    : `<p style="font-size:13px;color:var(--muted);margin:0 0 14px">No overview found for this vehicle online — double check the make, model and year are correct.</p>`;
+  const scoreHtml = score != null ? `
+    <div style="margin-top:4px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between">
+        <div class="form-label" style="margin-bottom:2px">Estimated Reliability Score</div>
+        <div style="font-size:18px;font-weight:800;color:${scoreColor(score)}">${score}<span style="font-size:12px;color:var(--muted);font-weight:600">/100</span></div>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${score}%;background:${scoreColor(score)}"></div></div>
+      <small class="hint">Estimated from U.S. NHTSA safety recalls (${recallsCount!=null?recallsCount:'—'}) and owner complaints (${complaintsCount!=null?complaintsCount:'—'}) on file for this make/model/year. This is a rough directional signal, not an official rating — fewer reports can also just mean fewer of these vehicles are on the road.</small>
+    </div>
+  ` : `<small class="hint">Not enough data to estimate a reliability score — a model year is needed to check against NHTSA records.</small>`;
+  wrap.innerHTML = `
+    ${descHtml}
+    ${scoreHtml}
+    ${summary && summary.url ? `<div style="margin-top:12px"><a href="${summary.url}" target="_blank" rel="noopener" style="font-size:12px;color:var(--blue)">Read more on Wikipedia →</a></div>` : ''}
+  `;
 }
 function renderDocuments(v){
   if(!v.documents.length) return `<div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">No documents uploaded yet.</div>`;
