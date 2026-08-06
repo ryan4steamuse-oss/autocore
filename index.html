@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GarageIQ — Vehicle Management</title>
+<script>
+// Apply the saved theme before first paint so there's no flash of the wrong theme.
+(function(){
+  try {
+    var raw = localStorage.getItem('garageiq-prefs-v1');
+    var theme = 'midnight';
+    if(raw){ var p = JSON.parse(raw); if(p && p.settings && p.settings.theme) theme = p.settings.theme; }
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch(e){}
+})();
+</script>
 <style>
   :root {
     --bg: #0d0d0d; --surface: #141414; --card: #1a1a1a; --card2: #202020;
@@ -11,7 +22,33 @@
     --text: #f0ede8; --muted: #888580;
     --accent: #e8593c; --accent2: #f07a5a; --accent-bg: rgba(232,89,60,0.1); --accent-border: rgba(232,89,60,0.3);
     --blue: #2a78d6; --green: #1baf7a; --amber: #eda100;
+    --hover: rgba(255,255,255,0.05); --hover2: rgba(255,255,255,0.1);
     --radius: 12px; --radius-sm: 8px;
+  }
+  /* ===== Themes — switch via Settings, applied as data-theme on <html> ===== */
+  :root[data-theme="slate"] {
+    --bg:#0a1120; --surface:#0f1830; --card:#121d38; --card2:#17233f;
+    --border:rgba(255,255,255,0.08); --border2:rgba(255,255,255,0.15);
+    --text:#eaf0ff; --muted:#7c88ab;
+    --accent:#4f8cf0; --accent2:#72a4f5; --accent-bg:rgba(79,140,240,0.14); --accent-border:rgba(79,140,240,0.35);
+    --blue:#4f8cf0; --green:#22b88a; --amber:#e0a72e;
+    --hover: rgba(255,255,255,0.06); --hover2: rgba(255,255,255,0.12);
+  }
+  :root[data-theme="forest"] {
+    --bg:#0a140f; --surface:#0e1c15; --card:#122619; --card2:#162e1e;
+    --border:rgba(255,255,255,0.08); --border2:rgba(255,255,255,0.15);
+    --text:#e9f5ec; --muted:#7f9686;
+    --accent:#3fb17c; --accent2:#5fcb96; --accent-bg:rgba(63,177,124,0.14); --accent-border:rgba(63,177,124,0.35);
+    --blue:#3a8fd6; --green:#3fb17c; --amber:#dba435;
+    --hover: rgba(255,255,255,0.06); --hover2: rgba(255,255,255,0.12);
+  }
+  :root[data-theme="daylight"] {
+    --bg:#eef1f5; --surface:#ffffff; --card:#ffffff; --card2:#f4f6f9;
+    --border:rgba(15,23,42,0.08); --border2:rgba(15,23,42,0.15);
+    --text:#151a23; --muted:#6b7386;
+    --accent:#0f8b8d; --accent2:#14a5a8; --accent-bg:rgba(15,139,141,0.09); --accent-border:rgba(15,139,141,0.3);
+    --blue:#2a78d6; --green:#1a9c6e; --amber:#c98400;
+    --hover: rgba(15,23,42,0.05); --hover2: rgba(15,23,42,0.09);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.5; min-height: 100vh; }
@@ -26,14 +63,14 @@
   .nav-section { margin-bottom: 20px; }
   .nav-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding: 0 12px; margin-bottom: 6px; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 500; transition: all 0.15s; border: none; background: none; width: 100%; text-align: left; }
-  .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  .nav-item:hover { background: var(--hover); color: var(--text); }
   .nav-item.active { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); }
   .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
   .nav-badge { margin-left: auto; background: var(--accent); color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
   .car-selector { padding: 12px 8px; border-bottom: 1px solid var(--border); max-height: 220px; overflow-y: auto; }
   .car-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; transition: background 0.15s; }
-  .car-item:hover { background: rgba(255,255,255,0.04); }
-  .car-item.active { background: rgba(255,255,255,0.06); border: 1px solid var(--border2); }
+  .car-item:hover { background: var(--hover); }
+  .car-item.active { background: var(--hover2); border: 1px solid var(--border2); }
   .car-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .car-info { flex: 1; min-width: 0; }
   .car-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -68,7 +105,7 @@
   .health-bars { display: flex; flex-direction: column; gap: 8px; }
   .health-bar-row { display: flex; align-items: center; gap: 10px; }
   .health-bar-label { font-size: 12px; color: var(--muted); width: 80px; }
-  .health-bar-track { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+  .health-bar-track { flex: 1; height: 4px; background: rgba(128,128,128,0.18); border-radius: 2px; overflow: hidden; }
   .health-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
   .health-bar-pct { font-size: 11px; font-weight: 600; width: 32px; text-align: right; }
   .service-list { display: flex; flex-direction: column; gap: 10px; }
@@ -86,8 +123,8 @@
   .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: none; text-decoration: none; }
   .btn-primary { background: var(--accent); color: white; }
   .btn-primary:hover { background: var(--accent2); }
-  .btn-ghost { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--border2); }
-  .btn-ghost:hover { background: rgba(255,255,255,0.1); }
+  .btn-ghost { background: var(--hover); color: var(--text); border: 1px solid var(--border2); }
+  .btn-ghost:hover { background: var(--hover2); }
   .btn-sm { padding: 6px 12px; font-size: 12px; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
@@ -110,7 +147,7 @@
   .cost-total { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; margin-top: 4px; border-top: 2px solid var(--border2); }
   .cost-total-label { font-size: 14px; font-weight: 700; }
   .cost-total-val { font-size: 18px; font-weight: 800; color: var(--accent); }
-  .progress-track { height: 6px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+  .progress-track { height: 6px; background: rgba(128,128,128,0.15); border-radius: 3px; overflow: hidden; margin-top: 8px; }
   .progress-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
   .search-wrap { position: relative; margin-bottom: 16px; }
   .search-input { width: 100%; padding: 10px 16px 10px 38px; background: var(--card); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-size: 13px; outline: none; }
@@ -136,7 +173,7 @@
   .value-bar { height: 8px; border-radius: 4px; background: linear-gradient(to right, var(--green), var(--amber), var(--accent)); margin: 10px 0; position: relative; }
   .value-indicator { position: absolute; top: -4px; width: 16px; height: 16px; border-radius: 50%; background: white; border: 3px solid var(--card); box-shadow: 0 0 0 2px var(--blue); transform: translateX(-50%); transition: left 0.4s; }
   .value-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
-  ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+  ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--hover2); border-radius: 2px; }
   .modal-overlay { display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 300; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
   .modal-overlay.open { display: flex; }
   .modal-box { background: var(--card); border: 1px solid var(--border2); border-radius: var(--radius); padding: 26px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
@@ -144,7 +181,7 @@
   .modal-title { font-size: 17px; font-weight: 700; }
   .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 22px; line-height: 1; }
   .toast-wrap { position: fixed; bottom: 20px; right: 20px; z-index: 500; display: flex; flex-direction: column; gap: 8px; }
-  .toast { background: var(--card2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: slideIn 0.2s ease; max-width: 320px; }
+  .toast { background: var(--card2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: slideIn 0.2s ease; max-width: 320px; color: var(--text); }
   .toast.success { border-color: rgba(27,175,122,0.4); }
   .toast.error { border-color: rgba(232,89,60,0.4); }
   @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -156,13 +193,37 @@
   .diy-card { background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 18px; margin-bottom: 12px; cursor: pointer; }
   .diy-card:hover { border-color: var(--accent-border); }
   .icon-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 4px 8px; border-radius: 6px; }
-  .icon-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  .icon-btn:hover { background: var(--hover); color: var(--text); }
   small.hint { color: var(--muted); font-size: 11px; display:block; margin-top: 4px; }
   textarea.form-input { resize: vertical; font-family: inherit; }
+
+  /* ===== Auth / login ===== */
+  .auth-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .auth-box { width: 100%; max-width: 380px; }
+  .auth-logo { text-align: center; margin-bottom: 26px; }
+  .auth-logo .logo-text { font-size: 26px; }
+  .auth-logo .logo-sub { margin-top: 6px; }
+  .auth-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px; }
+  .auth-tabs { display: flex; gap: 4px; background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 20px; }
+  .auth-tab { flex: 1; text-align: center; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--muted); border: none; background: none; }
+  .auth-tab.active { background: var(--accent); color: white; }
+  .auth-status { font-size: 12px; margin-top: 10px; min-height: 16px; }
+  .auth-foot { text-align: center; margin-top: 16px; font-size: 12px; color: var(--muted); }
+
+  /* ===== Settings ===== */
+  .theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap: 12px; }
+  .theme-swatch { border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 12px; cursor: pointer; text-align: left; background: var(--card2); }
+  .theme-swatch.active { border-color: var(--accent); }
+  .theme-preview { display: flex; gap: 4px; height: 28px; border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
+  .theme-preview span { flex: 1; }
+  .theme-name { font-size: 12px; font-weight: 700; color: var(--text); }
 </style>
 </head>
 <body>
-<div class="app">
+
+<div class="auth-overlay" id="auth-overlay" style="display:flex"></div>
+
+<div class="app" style="display:none">
   <aside class="sidebar">
     <div class="logo">
       <div class="logo-text">Garage<span>IQ</span></div>
@@ -212,8 +273,15 @@
           Security
         </button>
       </div>
+      <div class="nav-section">
+        <div class="nav-label">Account</div>
+        <button class="nav-item" data-page="settings" onclick="showPage('settings')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          Settings
+        </button>
+      </div>
     </nav>
-    <div class="sidebar-footer">Data is saved automatically to your browser account.</div>
+    <div class="sidebar-footer" id="sidebar-footer"></div>
   </aside>
 
   <main class="main">
@@ -225,15 +293,25 @@
     <div class="page" id="page-mechanics"></div>
     <div class="page" id="page-value"></div>
     <div class="page" id="page-theft"></div>
+    <div class="page" id="page-settings"></div>
   </main>
 </div>
 
 <div class="modal-overlay" id="modal-overlay"><div class="modal-box" id="modal-box"></div></div>
 <div class="toast-wrap" id="toast-wrap"></div>
 
-<script>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+/* ============================= SUPABASE ============================= */
+// Vehicles are stored in a `vehicles` table: one row per vehicle, keyed to the
+// signed-in user via RLS on user_id. See the setup notes shared alongside this file.
+const supabaseUrl = "https://utgenxorqwtswymikedn.supabase.co";
+const supabaseKey = "sb_publishable_uezbv_39pcs9l7eQ1zDcyw_kBamfa7B";
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 /* ============================= CONSTANTS ============================= */
-const STORAGE_KEY = 'garageiq-state-v1';
+const PREFS_KEY = 'garageiq-prefs-v1';
 
 const SERVICE_INTERVALS = [
   {key:'oil', name:'Oil & Filter Change', km:10000, months:12, icon:'🛢️', costMin:75, costMax:150},
@@ -257,8 +335,6 @@ const HEALTH_BUCKETS = {
   Filters: ['cabin_filter']
 };
 
-// Base "as new" MSRP estimates (AUD) used ONLY for the depreciation-model value calculator.
-// These are approximate anchor points, not live pricing.
 const BASE_MSRP = {
   'toyota camry':42000,'toyota corolla':28000,'toyota rav4':38000,'toyota hilux':45000,'toyota landcruiser':90000,
   'ford ranger':55000,'ford focus':30000,'ford everest':60000,
@@ -274,6 +350,14 @@ const BASE_MSRP = {
   'tesla model 3':62000,'tesla model y':68000
 };
 const DEFAULT_MSRP = 34000;
+
+const CURRENCY_SYMBOLS = { AUD:'$', USD:'$', GBP:'£', EUR:'€' };
+const THEMES = [
+  {id:'midnight', name:'Midnight', colors:['#0d0d0d','#e8593c','#f0ede8']},
+  {id:'slate', name:'Slate', colors:['#0a1120','#4f8cf0','#eaf0ff']},
+  {id:'forest', name:'Forest', colors:['#0a140f','#3fb17c','#e9f5ec']},
+  {id:'daylight', name:'Daylight', colors:['#eef1f5','#0f8b8d','#151a23']},
+];
 
 const DIY_GUIDES = [
   { id:'brake-squeak', keywords:['brake squeak','squeal','squealing','grinding brake','noise braking','brake noise'],
@@ -360,23 +444,43 @@ const DIY_GUIDES = [
     ]},
 ];
 
+const MODS_ICE = [
+  {name:'Cold Air Intake', note:'Improves airflow', price:'$200–$350', before:'Stock', after:'+8–15hp typical', gain:'~+10hp', difficulty:1, install:'DIY ~30 min', legal:'Generally road-legal — check your state\'s modification rules before fitting.'},
+  {name:'Cat-back Exhaust', note:'Reduces backpressure', price:'$800–$1800', before:'Stock', after:'+10–20hp typical', gain:'~+15hp', difficulty:2, install:'Workshop recommended', legal:'Must meet local noise/emissions rules — get an engineer\'s cert if required in your state.'},
+  {name:'Lowering Springs', note:'Improves handling, changes stance', price:'$300–$500', before:'Stock ride height', after:'25–35mm lower', gain:null, difficulty:3, install:'Workshop recommended', legal:'Ride height changes often require an engineering certificate — check local rules.'},
+  {name:'ECU Remap / Tune', note:'Recalibrates fuel & timing maps', price:'$500–$1200', before:'Stock', after:'+15–30hp typical', gain:'~+20hp', difficulty:3, install:'Requires a qualified tuner', legal:'May affect warranty and emissions compliance — confirm with your tuner and insurer.'}
+];
+const MODS_EV = [
+  {name:'Performance Wheel & Tyre Package', note:'Lighter wheels, better grip', price:'$1500–$3000', before:null, after:null, gain:null, difficulty:2, install:'Workshop fitting recommended', legal:'Generally road-legal — confirm tyre load rating matches vehicle spec.'},
+  {name:'Suspension Upgrade (coilovers)', note:'Improves handling and stance', price:'$1200–$2500', before:null, after:null, gain:null, difficulty:3, install:'Workshop recommended', legal:'Ride height changes may need an engineering certificate.'},
+  {name:'Software Performance Unlock', note:'Manufacturer or third-party unlock where available', price:'$500–$2000', before:'Stock', after:'Varies by model', gain:'Model-dependent', difficulty:2, install:'Dealer or specialist required', legal:'Check manufacturer warranty terms before applying any third-party unlock.'},
+  {name:'Aero Kit', note:'Reduces drag / adds downforce', price:'$400–$1500', before:null, after:null, gain:null, difficulty:2, install:'DIY to workshop', legal:'Generally road-legal if OEM-fit; custom kits may need certification.'}
+];
+
 /* ============================= STATE ============================= */
-let appState = { vehicles: [], selectedId: null, userLocation: null };
+let appState = { vehicles: [], selectedId: null, userLocation: null, settings: {theme:'midnight', unit:'km', currency:'AUD'} };
+let currentUser = null;
 let currentPage = 'dashboard';
-let diyActiveTab = 'diagnose';
-let modsActiveTab = 'suggested';
-let lastVinExtra = {}; // holds bodyClass/plant info from the last successful VIN decode, merged in on save
+let authTab = 'signin';
+let lastVinExtra = {};
 
 /* ============================= UTIL ============================= */
 const $ = sel => document.querySelector(sel);
 const $all = sel => document.querySelectorAll(sel);
 function uid(prefix){ return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function newId(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c=>{
+    const r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8); return v.toString(16);
+  });
+}
 function today(){ return new Date().toISOString().slice(0,10); }
 function addMonths(dateStr, months){ const d = new Date(dateStr); d.setMonth(d.getMonth()+months); return d.toISOString().slice(0,10); }
 function daysBetween(a,b){ return Math.round((new Date(b) - new Date(a)) / 86400000); }
 function fmtDate(d){ if(!d) return '—'; return new Date(d).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}); }
-function fmtMoney(n){ if(n===null||n===undefined||isNaN(n)) return '—'; return '$' + Math.round(n).toLocaleString('en-AU'); }
+function fmtMoney(n){ if(n===null||n===undefined||isNaN(n)) return '—'; const sym = CURRENCY_SYMBOLS[appState.settings?.currency] || '$'; return sym + Math.round(n).toLocaleString('en-AU'); }
 function fmtNum(n){ if(n===null||n===undefined||isNaN(n)) return '—'; return Math.round(n).toLocaleString('en-AU'); }
+function fmtDist(km){ if(km===null||km===undefined||isNaN(km)) return '—'; const unit = appState.settings?.unit || 'km'; if(unit==='mi') return fmtNum(km*0.621371) + ' mi'; return fmtNum(km) + ' km'; }
 function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function showToast(msg, type){
   const wrap = $('#toast-wrap');
@@ -387,64 +491,149 @@ function showToast(msg, type){
   setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3200);
 }
 
-/* ============================= STORAGE ============================= */
-async function loadState(){
+/* ============================= LOCAL PREFS (device-only: theme, units, last-selected car) ============================= */
+function loadLocalPrefs(){
+  try { const raw = localStorage.getItem(PREFS_KEY); return raw ? JSON.parse(raw) : {}; }
+  catch(e){ return {}; }
+}
+function saveLocalPrefs(){
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    localStorage.setItem(PREFS_KEY, JSON.stringify({
+      selectedId: appState.selectedId,
+      userLocation: appState.userLocation,
+      settings: appState.settings
+    }));
+  } catch(e){ console.error('Could not save preferences', e); }
+}
+function applyTheme(theme){ document.documentElement.setAttribute('data-theme', theme || 'midnight'); }
 
-    if(saved){
-      appState = JSON.parse(saved);
+/* ============================= AUTH ============================= */
+function initAuth(){
+  supabase.auth.onAuthStateChange((event, session)=>{
+    if(session && session.user){
+      currentUser = session.user;
+      enterApp();
     } else {
-      throw new Error('no data');
+      currentUser = null;
+      showLogin();
     }
+  });
+}
+function showLogin(){
+  $('#auth-overlay').style.display = 'flex';
+  document.querySelector('.app').style.display = 'none';
+  renderAuthPage();
+}
+function hideLogin(){
+  $('#auth-overlay').style.display = 'none';
+  document.querySelector('.app').style.display = 'flex';
+}
+function switchAuthTab(tab){ authTab = tab; renderAuthPage(); }
+function renderAuthPage(){
+  $('#auth-overlay').innerHTML = `
+    <div class="auth-box">
+      <div class="auth-logo"><div class="logo-text">Garage<span>IQ</span></div><div class="logo-sub">Vehicle Management</div></div>
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <button class="auth-tab ${authTab==='signin'?'active':''}" onclick="switchAuthTab('signin')">Sign In</button>
+          <button class="auth-tab ${authTab==='signup'?'active':''}" onclick="switchAuthTab('signup')">Create Account</button>
+        </div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="auth-email" type="email" placeholder="you@example.com" autocomplete="email"></div>
+        <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="auth-password" type="password" placeholder="${authTab==='signup'?'At least 6 characters':'••••••••'}" autocomplete="${authTab==='signup'?'new-password':'current-password'}"></div>
+        <button class="btn btn-primary" id="auth-submit-btn" style="width:100%" onclick="handleAuthSubmit('${authTab}')">${authTab==='signup'?'Create Account':'Sign In'}</button>
+        <div class="auth-status" id="auth-status"></div>
+      </div>
+      <div class="auth-foot">Your vehicles sync to your account, so you can pick up from any device.</div>
+    </div>
+  `;
+  const pwInput = $('#auth-password');
+  if(pwInput) pwInput.addEventListener('keydown', e=>{ if(e.key==='Enter') handleAuthSubmit(authTab); });
+}
+async function handleAuthSubmit(mode){
+  const email = $('#auth-email').value.trim();
+  const password = $('#auth-password').value;
+  const statusEl = $('#auth-status');
+  if(!email || !password){ statusEl.style.color = 'var(--accent)'; statusEl.textContent = 'Enter an email and password.'; return; }
+  const btn = $('#auth-submit-btn');
+  btn.disabled = true; btn.textContent = mode==='signup' ? 'Creating account…' : 'Signing in…';
+  statusEl.style.color = 'var(--muted)'; statusEl.textContent = '';
+  const result = mode==='signup'
+    ? await supabase.auth.signUp({ email, password })
+    : await supabase.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = mode==='signup' ? 'Create Account' : 'Sign In';
+  if(result.error){ statusEl.style.color = 'var(--accent)'; statusEl.textContent = result.error.message; return; }
+  if(mode==='signup' && result.data.user && !result.data.session){
+    statusEl.style.color = 'var(--green)';
+    statusEl.textContent = 'Account created — check your email to confirm, then sign in.';
+    return;
+  }
+  // On success, onAuthStateChange fires and enters the app.
+}
+async function handleSignOut(){
+  await supabase.auth.signOut();
+}
+async function enterApp(){
+  hideLogin();
+  await loadState();
+}
 
+/* ============================= CLOUD STORAGE (Supabase) ============================= */
+async function loadState(){
+  const prefs = loadLocalPrefs();
+  appState.selectedId = prefs.selectedId || null;
+  appState.userLocation = prefs.userLocation || null;
+  appState.settings = Object.assign({theme:'midnight', unit:'km', currency:'AUD'}, prefs.settings || {});
+  applyTheme(appState.settings.theme);
+
+  appState.vehicles = [];
+  try {
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('id, data, created_at')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: true });
+    if(error) throw error;
+    appState.vehicles = (data||[]).map(row => ({
+      ...(row.data||{}),
+      id: row.id,
+      services: (row.data && row.data.services) || [],
+      documents: (row.data && row.data.documents) || []
+    }));
   } catch(e){
-    appState = { 
-      vehicles: [seedVehicle()], 
-      selectedId: null, 
-      userLocation: null 
-    };
-
-    appState.selectedId = appState.vehicles[0].id;
-
-    await saveState(true);
+    console.error('Failed to load vehicles', e);
+    showToast('⚠️ Could not load your vehicles from the cloud', 'error');
   }
 
-  if(!appState.selectedId && appState.vehicles.length){
-    appState.selectedId = appState.vehicles[0].id;
+  if(!appState.selectedId || !getVehicle(appState.selectedId)){
+    appState.selectedId = appState.vehicles.length ? appState.vehicles[0].id : null;
   }
-
+  currentPage = 'dashboard';
   renderAll();
 }
-async function saveState(silent){
+async function saveVehicleToCloud(v){
+  const { id, ...rest } = v;
   try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(appState)
-    );
-
-    if(!silent) showToast('✓ Saved', 'success');
-
+    const { error } = await supabase.from('vehicles').upsert({
+      id, user_id: currentUser.id, data: rest, updated_at: new Date().toISOString()
+    });
+    if(error) throw error;
+    return true;
   } catch(e){
     console.error('Save failed', e);
-    showToast('⚠️ Could not save', 'error');
+    showToast('⚠️ Could not save to the cloud', 'error');
+    return false;
   }
 }
-
-function seedVehicle(){
-  const v = {
-    id: uid('veh'), vin:'4T1BF1FK5KU123456', make:'Toyota', model:'Camry', year:'2019', trim:'Ascent',
-    engine:'4-cyl 2.5L', transmission:'8-spd Automatic', drivetrain:'FWD', fuelType:'Gasoline', bodyClass:'Sedan',
-    plantCountry:'', plate:'ABC 123', regState:'VIC', color:'Graphite', odometer: 68420, odometerDate: today(),
-    purchaseDate: '2021-03-01', purchaseOdometer: 40000,
-    services: [
-      {id:uid('svc'), type:'oil', typeName:'Oil & Filter Change', date:'2025-03-10', odometer:60000, cost:120, shop:'Toyota Dealer', notes:'Major service'},
-      {id:uid('svc'), type:'tyre_rotation', typeName:'Tyre Rotation', date:'2025-06-05', odometer:66840, cost:85, shop:'ABC Tyres', notes:'New tyres fitted'},
-      {id:uid('svc'), type:'brake_pads', typeName:'Brake Pads', date:'2024-08-14', odometer:55000, cost:240, shop:'AutoBarn', notes:'Front pads'},
-    ],
-    documents: []
-  };
-  return v;
+async function deleteVehicleFromCloud(id){
+  try {
+    const { error } = await supabase.from('vehicles').delete().eq('id', id);
+    if(error) throw error;
+    return true;
+  } catch(e){
+    console.error('Delete failed', e);
+    showToast('⚠️ Could not delete from the cloud', 'error');
+    return false;
+  }
 }
 
 function getVehicle(id){ return appState.vehicles.find(v=>v.id===id); }
@@ -570,9 +759,19 @@ function renderSidebar(){
   const overdueCount = appState.vehicles.length ? getServiceStatus(getSelected()||appState.vehicles[0]).filter(s=>s.status==='overdue').length : 0;
   const badge = $('#nav-badge-maint');
   if(overdueCount>0){ badge.style.display='inline-block'; badge.textContent = overdueCount; } else { badge.style.display='none'; }
+
+  $('#sidebar-footer').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="min-width:0">
+        <div style="font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(currentUser && currentUser.email || '')}</div>
+        <div>Synced to your account</div>
+      </div>
+      <button class="icon-btn" title="Sign out" onclick="handleSignOut()">⏻</button>
+    </div>
+  `;
 }
 
-function selectVehicle(id){ appState.selectedId = id; saveState(true); renderAll(); }
+function selectVehicle(id){ appState.selectedId = id; saveLocalPrefs(); renderAll(); }
 
 /* ============================= NAVIGATION ============================= */
 function showPage(name){
@@ -586,10 +785,6 @@ function showPage(name){
 
 function renderAll(){
   renderSidebar();
-  if(!appState.vehicles.length){
-    $all('.page').forEach(p=> p.innerHTML = emptyStateNoVehicle());
-    return;
-  }
   renderPage(currentPage);
   $all('.nav-item').forEach(b=> b.classList.toggle('active', b.dataset.page===currentPage));
   $all('.page').forEach(p=>p.classList.remove('active'));
@@ -606,7 +801,10 @@ function emptyStateNoVehicle(){
 }
 
 function renderPage(name){
-  if(!appState.vehicles.length){ $all('.page').forEach(p=> p.innerHTML = emptyStateNoVehicle()); return; }
+  if(name === 'settings'){ renderSettings(); return; }
+  const container = document.getElementById('page-' + name);
+  if(!container) return;
+  if(!appState.vehicles.length){ container.innerHTML = emptyStateNoVehicle(); return; }
   const v = getSelected();
   const fns = {dashboard:renderDashboard, profile:renderProfile, maintenance:renderMaintenance, diy:renderDiy, mods:renderMods, mechanics:renderMechanics, value:renderValue, theft:renderTheft};
   if(fns[name]) fns[name](v);
@@ -628,40 +826,40 @@ function renderDashboard(v){
 
   let alerts = '';
   overdue.forEach(s=>{
-    alerts += `<div class="alert alert-danger"><div class="alert-icon">⚠️</div><div class="alert-text"><strong>${s.name} overdue by ${fmtNum(Math.abs(s.kmRemaining))} km</strong><span>Recommended every ${fmtNum(s.km)} km / ${s.months} months. Estimated cost ${fmtMoney(s.costMin)}–${fmtMoney(s.costMax)}.</span></div></div>`;
+    alerts += `<div class="alert alert-danger"><div class="alert-icon">⚠️</div><div class="alert-text"><strong>${s.name} overdue by ${fmtDist(Math.abs(s.kmRemaining))}</strong><span>Recommended every ${fmtDist(s.km)} / ${s.months} months. Estimated cost ${fmtMoney(s.costMin)}–${fmtMoney(s.costMax)}.</span></div></div>`;
   });
   soon.slice(0,2).forEach(s=>{
-    alerts += `<div class="alert alert-warning"><div class="alert-icon">🔔</div><div class="alert-text"><strong>${s.name} due in ${fmtNum(Math.max(s.kmRemaining,0))} km</strong><span>Estimated ${fmtDate(s.dueDate)}, cost ${fmtMoney(s.costMin)}–${fmtMoney(s.costMax)}.</span></div></div>`;
+    alerts += `<div class="alert alert-warning"><div class="alert-icon">🔔</div><div class="alert-text"><strong>${s.name} due in ${fmtDist(Math.max(s.kmRemaining,0))}</strong><span>Estimated ${fmtDate(s.dueDate)}, cost ${fmtMoney(s.costMin)}–${fmtMoney(s.costMax)}.</span></div></div>`;
   });
   if(!alerts) alerts = `<div class="alert alert-info"><div class="alert-icon">✅</div><div class="alert-text"><strong>Everything on track</strong><span>No services due soon based on your logged history.</span></div></div>`;
 
   const nextDue = statuses.filter(s=>s.status!=='ok').slice(0,4);
   const serviceListHtml = (nextDue.length?nextDue:statuses.slice(0,4)).map(s=>`
     <div class="service-item ${s.status==='overdue'?'overdue':s.status==='soon'?'due-soon':''}">
-      <div class="service-icon" style="background:rgba(255,255,255,0.05)">${s.icon}</div>
+      <div class="service-icon" style="background:var(--hover)">${s.icon}</div>
       <div class="service-content">
         <div class="service-name">${s.name}</div>
-        <div class="service-detail">${s.status==='overdue'?`Overdue by ${fmtNum(Math.abs(s.kmRemaining))} km`:`Due in ${fmtNum(Math.max(s.kmRemaining,0))} km`} — est. ${fmtMoney(s.costMin)}–${fmtMoney(s.costMax)}</div>
+        <div class="service-detail">${s.status==='overdue'?`Overdue by ${fmtDist(Math.abs(s.kmRemaining))}`:`Due in ${fmtDist(Math.max(s.kmRemaining,0))}`} — est. ${fmtMoney(s.costMin)}–${fmtMoney(s.costMax)}</div>
       </div>
       <div class="service-badge ${s.status==='overdue'?'badge-due':s.status==='soon'?'badge-soon':'badge-ok'}">${s.status==='overdue'?'Overdue':s.status==='soon'?'Due soon':'On track'}</div>
     </div>`).join('');
 
   $('#page-dashboard').innerHTML = `
     <div class="page-header header-row">
-      <div><div class="page-title">Dashboard</div><div class="page-sub">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} — ${fmtNum(v.odometer)} km</div></div>
+      <div><div class="page-title">Dashboard</div><div class="page-sub">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} — ${fmtDist(v.odometer)}</div></div>
       <button class="btn btn-primary" onclick="openServiceModal()">+ Log Service</button>
     </div>
     ${alerts}
     <div class="grid-3 mb-24">
       <div class="stat-card"><div class="stat-label">Health Score</div><div class="stat-value" style="color:${healthColor}">${health.overall}</div><div class="stat-sub">${health.overall>=80?'Excellent':health.overall>=60?'Needs attention':'Overdue services'}</div></div>
-      <div class="stat-card"><div class="stat-label">Annual KMs</div><div class="stat-value">${annualKm?fmtNum(annualKm):'—'}</div><div class="stat-sub">${annualKm?'Estimated from history':'Add purchase details for estimate'}</div></div>
+      <div class="stat-card"><div class="stat-label">Annual Distance</div><div class="stat-value">${annualKm?fmtDist(annualKm):'—'}</div><div class="stat-sub">${annualKm?'Estimated from history':'Add purchase details for estimate'}</div></div>
       <div class="stat-card"><div class="stat-label">Maintenance / yr</div><div class="stat-value">${fmtMoney(costs.total)}</div><div class="stat-sub">Estimated from service history</div></div>
     </div>
     <div class="grid-2-1">
       <div>
         <div class="health-card mb-20">
           <div class="health-ring"><svg width="100" height="100" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+            <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(128,128,128,0.16)" stroke-width="8"/>
             <circle cx="50" cy="50" r="38" fill="none" stroke="${healthColor}" stroke-width="8" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round"/>
           </svg><div class="health-num" style="color:${healthColor}">${health.overall}</div></div>
           <div class="health-details">
@@ -713,7 +911,7 @@ function renderProfile(v){
           ${profileField('Body Class', v.bodyClass)}
           ${profileField('Colour', v.color)}
           ${profileField('Plate', v.plate + (v.regState? ' • '+v.regState : ''))}
-          ${profileField('Odometer', fmtNum(v.odometer) + ' km')}
+          ${profileField('Odometer', fmtDist(v.odometer))}
           ${profileField('Build Plant', [v.plantCity,v.plantCountry].filter(Boolean).join(', '))}
         </div>
       </div>
@@ -739,7 +937,7 @@ function renderProfile(v){
           <div style="font-size:11px;color:var(--muted);margin-top:4px">Purchase Date</div>
         </div>
         <div style="padding:16px;background:rgba(237,161,0,0.08);border-radius:var(--radius-sm);border:1px solid rgba(237,161,0,0.2);text-align:center">
-          <div style="font-size:22px;font-weight:800;color:#eda100">${v.purchaseOdometer!=null?fmtNum(v.purchaseOdometer):'—'}</div>
+          <div style="font-size:22px;font-weight:800;color:#eda100">${v.purchaseOdometer!=null?fmtDist(v.purchaseOdometer):'—'}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px">Odometer at Purchase</div>
         </div>
       </div>
@@ -768,17 +966,18 @@ function handleDocUpload(e){
   reader.onload = async function(ev){
     const v = getSelected();
     v.documents.push({id: uid('doc'), name: file.name, dataUrl: ev.target.result, date: today()});
-    await saveState(true);
-    renderProfile(v);
-    showToast('✓ Document uploaded', 'success');
+    const ok = await saveVehicleToCloud(v);
+    if(ok){ renderProfile(v); showToast('✓ Document uploaded', 'success'); }
   };
   reader.onerror = function(){ showToast('⚠️ Could not read file', 'error'); };
   reader.readAsDataURL(file);
 }
 async function deleteDocument(vid, did){
   const v = getVehicle(vid);
+  const prev = v.documents;
   v.documents = v.documents.filter(d=>d.id!==did);
-  await saveState(true);
+  const ok = await saveVehicleToCloud(v);
+  if(!ok){ v.documents = prev; return; }
   renderProfile(v);
 }
 
@@ -800,13 +999,13 @@ function renderMaintenance(v){
         <div class="service-list">
           ${statuses.map(s=>`
             <div class="service-item ${s.status==='overdue'?'overdue':s.status==='soon'?'due-soon':''}">
-              <div class="service-icon" style="background:rgba(255,255,255,0.05)">${s.icon}</div>
+              <div class="service-icon" style="background:var(--hover)">${s.icon}</div>
               <div class="service-content">
                 <div class="service-name">${s.name}</div>
-                <div class="service-detail">${s.last?`Last: ${fmtNum(s.last.odometer)} km, ${fmtDate(s.last.date)}`:'Never logged'} • Every ${fmtNum(s.km)} km / ${s.months}mo</div>
+                <div class="service-detail">${s.last?`Last: ${fmtDist(s.last.odometer)}, ${fmtDate(s.last.date)}`:'Never logged'} • Every ${fmtDist(s.km)} / ${s.months}mo</div>
               </div>
               <div style="text-align:right">
-                <div class="service-badge ${s.status==='overdue'?'badge-due':s.status==='soon'?'badge-soon':'badge-ok'}">${s.status==='overdue'?`${fmtNum(Math.abs(s.kmRemaining))} km over`:s.status==='soon'?`${fmtNum(s.kmRemaining)} km left`:'On track'}</div>
+                <div class="service-badge ${s.status==='overdue'?'badge-due':s.status==='soon'?'badge-soon':'badge-ok'}">${s.status==='overdue'?`${fmtDist(Math.abs(s.kmRemaining))} over`:s.status==='soon'?`${fmtDist(s.kmRemaining)} left`:'On track'}</div>
                 <button class="icon-btn" style="margin-top:4px;font-size:11px" onclick="openServiceModal('${s.key}')">Log now</button>
               </div>
             </div>`).join('')}
@@ -821,7 +1020,7 @@ function renderMaintenance(v){
                 <div style="font-size:13px;font-weight:600">${escapeHtml(s.typeName)}</div>
                 <div style="font-size:12px;color:var(--muted)">${fmtDate(s.date)}</div>
               </div>
-              <div style="font-size:12px;color:var(--muted)">${fmtNum(s.odometer)} km • ${escapeHtml(s.shop||'—')} • ${fmtMoney(s.cost)}</div>
+              <div style="font-size:12px;color:var(--muted)">${fmtDist(s.odometer)} • ${escapeHtml(s.shop||'—')} • ${fmtMoney(s.cost)}</div>
               ${s.notes?`<div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(s.notes)}</div>`:''}
               <button class="icon-btn" style="font-size:11px;padding:2px 0;color:var(--accent)" onclick="deleteService('${v.id}','${s.id}')">Delete</button>
             </div>`).join('') : '<div style="color:var(--muted);font-size:13px;padding:16px 0">No services logged yet.</div>'}
@@ -832,8 +1031,10 @@ function renderMaintenance(v){
 }
 async function deleteService(vid, sid){
   const v = getVehicle(vid);
+  const prev = v.services;
   v.services = v.services.filter(s=>s.id!==sid);
-  await saveState(true);
+  const ok = await saveVehicleToCloud(v);
+  if(!ok){ v.services = prev; return; }
   renderAll();
   showToast('Service record deleted', 'success');
 }
@@ -884,7 +1085,7 @@ function diyCardHtml(g){
         <div style="font-size:14px;font-weight:700">${g.title}</div>
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
           <span class="tag" style="background:rgba(237,161,0,0.15);color:#eda100">${'⭐'.repeat(g.difficulty)} ${g.difficulty===1?'Easy':g.difficulty===2?'Medium':'Hard'}</span>
-          <span class="tag" style="background:rgba(255,255,255,0.06);color:var(--muted)">~${g.timeMins} min</span>
+          <span class="tag" style="background:var(--hover);color:var(--muted)">~${g.timeMins} min</span>
           <span class="tag" style="background:rgba(27,175,122,0.12);color:#1baf7a">DIY: ${fmtMoney(g.costDiyMin)}–${fmtMoney(g.costDiyMax)}</span>
         </div>
       </div>
@@ -960,18 +1161,6 @@ function renderMods(v){
     </div>
   `;
 }
-const MODS_ICE = [
-  {name:'Cold Air Intake', note:'Improves airflow', price:'$200–$350', before:'Stock', after:'+8–15hp typical', gain:'~+10hp', difficulty:1, install:'DIY ~30 min', legal:'Generally road-legal — check your state\'s modification rules before fitting.'},
-  {name:'Cat-back Exhaust', note:'Reduces backpressure', price:'$800–$1800', before:'Stock', after:'+10–20hp typical', gain:'~+15hp', difficulty:2, install:'Workshop recommended', legal:'Must meet local noise/emissions rules — get an engineer\'s cert if required in your state.'},
-  {name:'Lowering Springs', note:'Improves handling, changes stance', price:'$300–$500', before:'Stock ride height', after:'25–35mm lower', gain:null, difficulty:3, install:'Workshop recommended', legal:'Ride height changes often require an engineering certificate — check local rules.'},
-  {name:'ECU Remap / Tune', note:'Recalibrates fuel & timing maps', price:'$500–$1200', before:'Stock', after:'+15–30hp typical', gain:'~+20hp', difficulty:3, install:'Requires a qualified tuner', legal:'May affect warranty and emissions compliance — confirm with your tuner and insurer.'}
-];
-const MODS_EV = [
-  {name:'Performance Wheel & Tyre Package', note:'Lighter wheels, better grip', price:'$1500–$3000', before:null, after:null, gain:null, difficulty:2, install:'Workshop fitting recommended', legal:'Generally road-legal — confirm tyre load rating matches vehicle spec.'},
-  {name:'Suspension Upgrade (coilovers)', note:'Improves handling and stance', price:'$1200–$2500', before:null, after:null, gain:null, difficulty:3, install:'Workshop recommended', legal:'Ride height changes may need an engineering certificate.'},
-  {name:'Software Performance Unlock', note:'Manufacturer or third-party unlock where available', price:'$500–$2000', before:'Stock', after:'Varies by model', gain:'Model-dependent', difficulty:2, install:'Dealer or specialist required', legal:'Check manufacturer warranty terms before applying any third-party unlock.'},
-  {name:'Aero Kit', note:'Reduces drag / adds downforce', price:'$400–$1500', before:null, after:null, gain:null, difficulty:2, install:'DIY to workshop', legal:'Generally road-legal if OEM-fit; custom kits may need certification.'}
-];
 
 /* ============================= MECHANICS ============================= */
 function renderMechanics(){
@@ -1022,7 +1211,7 @@ function setLocationText(){
   const val = $('#loc-input').value.trim();
   if(!val){ showToast('Enter a location first', 'error'); return; }
   appState.userLocation = {text: val, coords: null};
-  saveState(true);
+  saveLocalPrefs();
   renderMechanics();
   showToast('✓ Location set', 'success');
 }
@@ -1032,7 +1221,7 @@ function useGeolocation(){
   navigator.geolocation.getCurrentPosition(
     pos=>{
       appState.userLocation = {coords:{lat:pos.coords.latitude, lng:pos.coords.longitude}, text:null};
-      saveState(true);
+      saveLocalPrefs();
       renderMechanics();
       showToast('✓ Using your current location', 'success');
     },
@@ -1070,7 +1259,7 @@ function renderValue(v){
         <div class="form-group"><label class="form-label">Make / Model</label><input class="form-input" id="val-makemodel" value="${escapeHtml(v.make)} ${escapeHtml(v.model)}" disabled></div>
         <div class="grid-2" style="gap:12px">
           <div class="form-group"><label class="form-label">Year</label><input class="form-input" id="val-year" value="${escapeHtml(v.year)}"></div>
-          <div class="form-group"><label class="form-label">Odometer</label><input class="form-input" id="val-odo" value="${v.odometer}"></div>
+          <div class="form-group"><label class="form-label">Odometer (km)</label><input class="form-input" id="val-odo" value="${v.odometer}"></div>
         </div>
         <div class="form-group"><label class="form-label">Condition</label>
           <select class="form-input" id="val-condition"><option value="excellent">Excellent</option><option value="good" selected>Good</option><option value="fair">Fair</option><option value="poor">Poor</option></select>
@@ -1116,7 +1305,6 @@ function runValueCalc(){
 
 /* ============================= SECURITY (honest simulation) ============================= */
 function renderTheft(v){
-  const s = v.security || {gps:false, geofence:false, movement:false};
   $('#page-theft').innerHTML = `
     <div class="page-header"><div class="page-title">Security & Theft Protection</div><div class="page-sub">What's real here, and what needs hardware</div></div>
     <div class="alert alert-warning"><div class="alert-icon">⚠️</div><div class="alert-text"><strong>This page is a settings/demo panel, not live tracking</strong><span>Real GPS tracking, geofencing and movement alerts need a physical GPS tracker or OBD2 dongle reporting to a backend — that hardware/service isn't connected here. The toggles below just save your preferences.</span></div></div>
@@ -1134,7 +1322,7 @@ function renderTheft(v){
         1. Get an OBD2 GPS tracker (e.g. a commercial fleet-tracking dongle) with a data plan.<br>
         2. The tracker's provider gives you an API or webhook for live location.<br>
         3. A small backend service would poll that API and push updates here.<br>
-        This app has no backend, so step 3 isn't possible in a static page — it would need a server component.
+        This app has no backend beyond Supabase, so step 3 would need a small server or scheduled function to bridge the tracker's API in.
       </div>
     </div>
   `;
@@ -1149,10 +1337,70 @@ function secToggle(v, key, label, desc){
 async function toggleSecurity(vid, key){
   const v = getVehicle(vid);
   if(!v.security) v.security = {};
-  v.security[key] = !v.security[key];
-  await saveState(true);
+  const prevVal = v.security[key];
+  v.security[key] = !prevVal;
+  const ok = await saveVehicleToCloud(v);
+  if(!ok){ v.security[key] = prevVal; return; }
   renderTheft(v);
 }
+
+/* ============================= SETTINGS ============================= */
+function renderSettings(){
+  const s = appState.settings;
+  $('#page-settings').innerHTML = `
+    <div class="page-header"><div class="page-title">Settings</div><div class="page-sub">Appearance, units and account</div></div>
+    <div class="card mb-20">
+      <div class="section-title mb-16">Appearance</div>
+      <div class="theme-grid">
+        ${THEMES.map(t=>`
+          <button class="theme-swatch ${s.theme===t.id?'active':''}" onclick="setTheme('${t.id}')">
+            <div class="theme-preview">${t.colors.map(c=>`<span style="background:${c}"></span>`).join('')}</div>
+            <div class="theme-name">${t.name}</div>
+          </button>`).join('')}
+      </div>
+    </div>
+    <div class="card mb-20">
+      <div class="section-title mb-16">Units & Currency</div>
+      <div class="grid-2" style="gap:16px">
+        <div class="form-group">
+          <label class="form-label">Distance Unit</label>
+          <select class="form-input" onchange="setUnit(this.value)">
+            <option value="km" ${s.unit==='km'?'selected':''}>Kilometres</option>
+            <option value="mi" ${s.unit==='mi'?'selected':''}>Miles</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Currency</label>
+          <select class="form-input" onchange="setCurrency(this.value)">
+            <option value="AUD" ${s.currency==='AUD'?'selected':''}>AUD ($)</option>
+            <option value="USD" ${s.currency==='USD'?'selected':''}>USD ($)</option>
+            <option value="GBP" ${s.currency==='GBP'?'selected':''}>GBP (£)</option>
+            <option value="EUR" ${s.currency==='EUR'?'selected':''}>EUR (€)</option>
+          </select>
+        </div>
+      </div>
+      <small class="hint">These change how numbers are displayed around the app — they don't convert or edit any stored records.</small>
+    </div>
+    <div class="card">
+      <div class="section-title mb-16">Account</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:13px;font-weight:600">${escapeHtml(currentUser && currentUser.email || '')}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Signed in — your vehicles are stored in the cloud</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="handleSignOut()">Sign Out</button>
+      </div>
+    </div>
+  `;
+}
+function setTheme(theme){
+  appState.settings.theme = theme;
+  applyTheme(theme);
+  saveLocalPrefs();
+  renderSettings();
+}
+function setUnit(unit){ appState.settings.unit = unit; saveLocalPrefs(); renderAll(); }
+function setCurrency(cur){ appState.settings.currency = cur; saveLocalPrefs(); renderAll(); }
 
 /* ============================= MODALS: VEHICLE ============================= */
 function openVehicleModal(editId){
@@ -1188,7 +1436,7 @@ function openVehicleModal(editId){
       <div class="form-group"><label class="form-label">Odometer at Purchase</label><input class="form-input" id="veh-purchaseodo" value="${v.purchaseOdometer!=null?v.purchaseOdometer:''}"></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:8px">
-      <button class="btn btn-primary" style="flex:1" onclick="saveVehicle('${editId||''}')">Save Vehicle</button>
+      <button class="btn btn-primary" style="flex:1" id="veh-save-btn" onclick="saveVehicle('${editId||''}')">Save Vehicle</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>
   `;
@@ -1229,24 +1477,34 @@ async function saveVehicle(editId){
   };
   if(!data.make || !data.model){ showToast('⚠️ Please enter at least make and model', 'error'); return; }
   Object.assign(data, lastVinExtra);
+  const btn = $('#veh-save-btn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   if(editId){
     const v = getVehicle(editId);
+    const backup = {...v};
     Object.assign(v, data);
+    const ok = await saveVehicleToCloud(v);
+    if(!ok){ Object.assign(v, backup); if(btn){ btn.disabled=false; btn.textContent='Save Vehicle'; } return; }
   } else {
-    const v = {...data, id: uid('veh'), bodyClass: data.bodyClass||'', plantCountry: data.plantCountry||'', plantCity: data.plantCity||'', manufacturer: data.manufacturer||'', services:[], documents:[]};
+    const id = newId();
+    const v = {...data, id, bodyClass: data.bodyClass||'', plantCountry: data.plantCountry||'', plantCity: data.plantCity||'', manufacturer: data.manufacturer||'', services:[], documents:[]};
+    const ok = await saveVehicleToCloud(v);
+    if(!ok){ if(btn){ btn.disabled=false; btn.textContent='Save Vehicle'; } return; }
     appState.vehicles.push(v);
     appState.selectedId = v.id;
+    saveLocalPrefs();
   }
-  await saveState(true);
   closeModal();
   renderAll();
   showToast('✓ Vehicle saved', 'success');
 }
 async function deleteVehicle(id){
   if(!confirm('Delete this vehicle and all its records? This cannot be undone.')) return;
+  const ok = await deleteVehicleFromCloud(id);
+  if(!ok) return;
   appState.vehicles = appState.vehicles.filter(v=>v.id!==id);
   if(appState.selectedId===id){ appState.selectedId = appState.vehicles.length ? appState.vehicles[0].id : null; }
-  await saveState(true);
+  saveLocalPrefs();
   currentPage = 'dashboard';
   renderAll();
   showToast('Vehicle deleted', 'success');
@@ -1272,7 +1530,7 @@ function openServiceModal(prefillType){
     <div class="form-group"><label class="form-label">Cost ($)</label><input class="form-input" id="svc-cost" placeholder="e.g. 120"></div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" rows="2" id="svc-notes" placeholder="Any additional notes..."></textarea></div>
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="btn btn-primary" style="flex:1" onclick="saveService('${v.id}')">Save Service</button>
+      <button class="btn btn-primary" style="flex:1" id="svc-save-btn" onclick="saveService('${v.id}')">Save Service</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>
   `;
@@ -1288,9 +1546,19 @@ async function saveService(vid){
   const odo = parseFloat($('#svc-odo').value);
   const date = $('#svc-date').value;
   if(!odo || !date){ showToast('⚠️ Odometer and date are required', 'error'); return; }
-  v.services.push({id: uid('svc'), type: typeKey, typeName, date, odometer: odo, cost: parseFloat($('#svc-cost').value)||0, shop: $('#svc-shop').value.trim(), notes: $('#svc-notes').value.trim()});
+  const btn = $('#svc-save-btn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  const prevOdo = v.odometer, prevDate = v.odometerDate;
+  const newService = {id: uid('svc'), type: typeKey, typeName, date, odometer: odo, cost: parseFloat($('#svc-cost').value)||0, shop: $('#svc-shop').value.trim(), notes: $('#svc-notes').value.trim()};
+  v.services.push(newService);
   if(odo > v.odometer){ v.odometer = odo; v.odometerDate = date; }
-  await saveState(true);
+  const ok = await saveVehicleToCloud(v);
+  if(!ok){
+    v.services = v.services.filter(s=>s.id!==newService.id);
+    v.odometer = prevOdo; v.odometerDate = prevDate;
+    if(btn){ btn.disabled=false; btn.textContent='Save Service'; }
+    return;
+  }
   closeModal();
   renderAll();
   showToast('✓ Service logged', 'success');
@@ -1316,29 +1584,17 @@ function exportCsv(){
   showToast('✓ CSV downloaded', 'success');
 }
 
+/* ============================= EXPOSE TO GLOBAL SCOPE (for inline onclick handlers) ============================= */
+Object.assign(window, {
+  showPage, selectVehicle, openVehicleModal, doVinLookup, saveVehicle, deleteVehicle,
+  openServiceModal, saveService, deleteService, handleDocUpload, deleteDocument,
+  renderDiyResults, showDiyDetail, setLocationText, useGeolocation, runValueCalc,
+  toggleSecurity, closeModal, exportCsv, switchAuthTab, handleAuthSubmit, handleSignOut,
+  setTheme, setUnit, setCurrency
+});
+
 /* ============================= INIT ============================= */
-loadState();
-showPage('dashboard');
+initAuth();
 </script>
- <script type="module">
-
-import { createClient } from 
-'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
-
-
-const supabaseUrl = "https://utgenxorqwtswymikedn.supabase.co/rest/v1/"
-
-const supabaseKey = "sb_publishable_uezbv_39pcs9l7eQ1zDcyw_kBamfa7B"
-
-
-const supabase = createClient(
-    supabaseUrl,
-    supabaseKey
-)
-
-
-console.log("Supabase connected")
-
-</script> 
 </body>
 </html>
