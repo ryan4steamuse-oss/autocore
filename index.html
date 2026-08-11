@@ -1685,6 +1685,11 @@ function openVehicleModal(editId){
       <div class="form-group"><label class="form-label">Purchase Date</label><input class="form-input" type="date" id="veh-purchasedate" value="${v.purchaseDate||''}"></div>
       <div class="form-group"><label class="form-label">Odometer at Purchase</label><input class="form-input" id="veh-purchaseodo" value="${v.purchaseOdometer!=null?v.purchaseOdometer:''}"></div>
     </div>
+    <div class="form-group" style="margin-top:-6px">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="autofillSpecsFromWeb()" id="autofill-btn">✨ Fill in unsure specs</button>
+      <div id="autofill-status" style="margin-top:8px;font-size:12px"></div>
+      <small class="hint">Looks up typical engine, transmission, drivetrain & fuel type for this Make/Model/Year from public sources. Only fills fields you've left blank — always double-check against your exact vehicle.</small>
+    </div>
     <div style="display:flex;gap:10px;margin-top:8px">
       <button class="btn btn-primary" style="flex:1" id="veh-save-btn" onclick="saveVehicle('${editId||''}')">Save Vehicle</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -1714,6 +1719,261 @@ async function doVinLookup(){
   $('#veh-fueltype').value = result.fuelType;
   lastVinExtra = {bodyClass: result.bodyClass, plantCountry: result.plantCountry, plantCity: result.plantCity, manufacturer: result.manufacturer};
   status.innerHTML = `<span style="color:var(--green)">✓ Decoded successfully from the official US NHTSA VIN database (make/model/year/engine confirmed).</span>`;
+}
+/* ============================= AUTOFILL UNSURE SPECS (from Wikipedia infobox, when there's no VIN) ============================= */
+const typicalSpecsCache = {};
+async function autofillSpecsFromWeb(){
+  const make = $('#veh-make').value.trim();
+  const model = $('#veh-model').value.trim();
+  const year = $('#veh-year').value.trim();
+  const trim = $('#veh-trim').value.trim();
+  const status = $('#autofill-status');
+  const btn = $('#autofill-btn');
+  if(!make || !model){
+    status.innerHTML = `<span style="color:var(--accent)">Enter at least Make and Model first.</span>`;
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Looking up…';
+  status.innerHTML = `<span style="color:var(--muted)">Searching public sources for typical specs…</span>`;
+  const specs = await fetchTypicalSpecs(make, model, year, trim);
+  btn.disabled = false; btn.textContent = '✨ Fill in unsure specs';
+  if(!specs){
+    status.innerHTML = `<span style="color:var(--accent)">⚠️ Couldn't find enough public data for this vehicle — please fill in manually.</span>`;
+    return;
+  }
+  const filled = [];
+  const setIfEmpty = (id, label, value) => {
+    const el = $(id);
+    if(el && !el.value.trim() && value){ el.value = value; filled.push(label); }
+  };
+  setIfEmpty('#veh-engine', 'Engine', specs.engine);
+  setIfEmpty('#veh-transmission', 'Transmission', specs.transmission);
+  setIfEmpty('#veh-drivetrain', 'Drivetrain', specs.drivetrain);
+  setIfEmpty('#veh-fueltype', 'Fuel Type', specs.fuelType);
+  if(filled.length){
+    const note = specs.engineNarrowed
+      ? `Matched to the ${escapeHtml(specs.engineNarrowed)} variant specifically.`
+      : (specs.engineAmbiguous ? `Couldn't pin down your exact variant, so the Engine field lists every option used across this model generation — trim it down to just yours.` : '');
+    status.innerHTML = `<span style="color:var(--green)">✓ Filled in ${filled.join(', ')} with typical specs for this model. ${note} Always double-check against your exact vehicle.</span>`;
+  } else {
+    status.innerHTML = `<span style="color:var(--muted)">Nothing new to fill in — those fields already have values, or no public data was found.</span>`;
+  }
+}
+async function fetchTypicalSpecs(make, model, year, trim){
+  const cacheKey = `${year}|${make}|${model}|${trim||''}`.toLowerCase();
+  if(typicalSpecsCache[cacheKey] !== undefined) return typicalSpecsCache[cacheKey];
+  const queries = [`${year} ${make} ${model}`.trim(), `${make} ${model}`.trim()];
+  let content = null;
+  for(const q of queries){
+    content = await fetchWikipediaWikitext(q);
+    if(content) break;
+  }
+  const trimHint = `${model} ${trim||''}`.trim();
+  const result = content ? parseInfoboxSpecs(content, trimHint) : null;
+  typicalSpecsCache[cacheKey] = result;
+  return result;
+}
+async function fetchWikipediaWikitext(query){
+  if(!query) return null;
+  try {
+    const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1&prop=revisions&rvprop=content&rvslots=main&formatversion=2&format=json&origin=*`;
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const json = await res.json();
+    const pages = json && json.query && json.query.pages;
+    if(!pages || !pages.length) return null;
+    const rev = pages[0].revisions && pages[0].revisions[0];
+    return (rev && rev.slots && rev.slots.main && rev.slots.main.content) || null;
+  } catch(e){
+    console.error('Wikipedia wikitext fetch failed', e);
+    return null;
+  }
+}
+function parseInfoboxSpecs(wikitext, trimHint){
+  const openIdx = wikitext.search(/\{\{\s*infobox/i);
+  if(openIdx === -1) return null;
+  let depth = 0, i = openIdx, end = -1;
+  while(i < wikitext.length){
+    if(wikitext[i]==='{' && wikitext[i+1]==='{'){ depth++; i+=2; continue; }
+    if(wikitext[i]==='}' && wikitext[i+1]==='}'){ depth--; i+=2; if(depth===0){ end = i; break; } continue; }
+    i++;
+  }
+  if(end === -1) return null;
+  const inner = wikitext.slice(openIdx+2, end-2);
+  const topParts = splitTopLevel(inner, '|');
+  const fields = {};
+  for(let k=1; k<topParts.length; k++){ // [0] is the template name, e.g. "Infobox automobile"
+    const [rawKey, rawVal] = splitTopLevelEquals(topParts[k]);
+    const key = rawKey.trim().toLowerCase();
+    const val = cleanWikiText(rawVal);
+    if(key && val) fields[key] = val;
+  }
+  const engineRaw = fields['engine'] || fields['powerplant'] || '';
+  const transmissionRaw = fields['transmission'] || '';
+  const layoutRaw = fields['layout'] || fields['drivetrain'] || '';
+  if(!engineRaw && !transmissionRaw && !layoutRaw) return null;
+  // Generation/platform articles (e.g. "BMW 3 Series (F30)") often list every engine ever offered
+  // across all trims in one infobox field. If the entered Model/Trim contains a specific variant
+  // name (e.g. "318i"), try to narrow the list down to just that engine using the article body text
+  // (excluding the infobox itself, which would otherwise match every code as "nearby").
+  const narrowed = narrowEngineToTrim(engineRaw, wikitext, trimHint, end);
+  const engine = narrowed.engine;
+  return {
+    engine,
+    transmission: transmissionRaw,
+    drivetrain: mapDrivetrain(layoutRaw),
+    fuelType: mapFuelType(engine + ' ' + (fields['fuel'] || fields['fuel_type'] || '')),
+    engineNarrowed: narrowed.matchedVariant || null,
+    engineAmbiguous: narrowed.ambiguous || false
+  };
+}
+// Given a joined engine list like "1.5 L B38 I3 turbo; 1.6 L N13 I4 turbo; ...", try to find the
+// single entry that matches the specific trim the user entered (e.g. "318i"), by looking for that
+// trim name near an engine code (e.g. "B38") in the article body text. `infoboxEnd` is excluded from
+// the search — the infobox itself contains every code, so proximity there is meaningless.
+function narrowEngineToTrim(engineRaw, wikitext, trimHint, infoboxEnd){
+  if(!engineRaw) return { engine: engineRaw };
+  const items = engineRaw.split(/;\s*/).map(s => s.trim())
+    .filter(s => s && !/^(petrol|diesel|electric|hybrid|gasoline)s?:?$/i.test(s));
+  if(items.length <= 1) return { engine: engineRaw };
+  const candidates = extractTrimCandidates(trimHint);
+  if(!candidates.length) return { engine: engineRaw, ambiguous: true };
+  const searchFloor = infoboxEnd || 0;
+  for(const cand of candidates){
+    const trimRe = new RegExp('\\b' + escapeRegex(cand) + '\\b', 'gi');
+    let m, best = null, bestDist = Infinity;
+    while((m = trimRe.exec(wikitext))){
+      if(m.index < searchFloor) continue; // ignore mentions inside/before the infobox itself
+      const windowStart = Math.max(searchFloor, m.index - 250), windowEnd = m.index + 250;
+      const windowText = wikitext.slice(windowStart, windowEnd);
+      for(const item of items){
+        const code = extractEngineCode(item);
+        if(!code) continue;
+        const codeRe = new RegExp('\\b' + escapeRegex(code) + '\\b', 'i');
+        const codeMatch = windowText.search(codeRe);
+        if(codeMatch !== -1){
+          const dist = Math.abs((windowStart + codeMatch) - m.index);
+          if(dist < bestDist){ bestDist = dist; best = item; }
+        }
+      }
+    }
+    if(best) return { engine: best, matchedVariant: cand };
+  }
+  return { engine: engineRaw, ambiguous: true };
+}
+function extractTrimCandidates(text){
+  if(!text) return [];
+  const matches = text.match(/\b\d{2,3}[a-zA-Z]{1,4}\b/g) || [];
+  return [...new Set(matches)].sort((a, b) => b.length - a.length);
+}
+function extractEngineCode(item){
+  const m = item.match(/\b[A-Za-z]{1,3}\d{2,3}[A-Za-z]?\b/);
+  return m ? m[0] : null;
+}
+function escapeRegex(s){
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+// Splits text on `delim`, but ignores delimiters that fall inside {{...}} or [[...]] nesting
+// (so e.g. "engine = {{Unbulleted list|1.6L I4|2.0L I4}}" isn't torn apart at those inner pipes).
+function splitTopLevel(text, delim){
+  const parts = []; let depthCurly = 0, depthSquare = 0, start = 0;
+  for(let i=0;i<text.length;i++){
+    const c = text[i], c2 = text[i+1];
+    if(c==='{' && c2==='{'){ depthCurly++; i++; continue; }
+    if(c==='}' && c2==='}'){ depthCurly = Math.max(0,depthCurly-1); i++; continue; }
+    if(c==='[' && c2==='['){ depthSquare++; i++; continue; }
+    if(c===']' && c2===']'){ depthSquare = Math.max(0,depthSquare-1); i++; continue; }
+    if(c===delim && depthCurly===0 && depthSquare===0){ parts.push(text.slice(start,i)); start = i+1; }
+  }
+  parts.push(text.slice(start));
+  return parts;
+}
+// Same nesting-aware idea, but splits at the first top-level "=" only (key = value).
+function splitTopLevelEquals(text){
+  let depthCurly = 0, depthSquare = 0;
+  for(let i=0;i<text.length;i++){
+    const c = text[i], c2 = text[i+1];
+    if(c==='{' && c2==='{'){ depthCurly++; i++; continue; }
+    if(c==='}' && c2==='}'){ depthCurly = Math.max(0,depthCurly-1); i++; continue; }
+    if(c==='[' && c2==='['){ depthSquare++; i++; continue; }
+    if(c===']' && c2===']'){ depthSquare = Math.max(0,depthSquare-1); i++; continue; }
+    if(c==='=' && depthCurly===0 && depthSquare===0){ return [text.slice(0,i), text.slice(i+1)]; }
+  }
+  return [text, ''];
+}
+// Recursively resolves {{templates}} and [[links]] into plain text — handles the common
+// "list of values" templates Wikipedia infoboxes use (Unbulleted list, plainlist, hlist, convert, etc).
+function extractTemplates(text, depthLimit){
+  if(depthLimit === undefined) depthLimit = 6;
+  if(depthLimit <= 0) return text.replace(/\{\{|\}\}/g, '');
+  let result = '', i = 0;
+  while(i < text.length){
+    const c = text[i], c2 = text[i+1];
+    if(c==='{' && c2==='{'){
+      let depth = 1, j = i + 2;
+      while(j < text.length && depth > 0){
+        if(text[j]==='{' && text[j+1]==='{'){ depth++; j+=2; }
+        else if(text[j]==='}' && text[j+1]==='}'){ depth--; j+=2; }
+        else j++;
+      }
+      const rawInner = text.slice(i+2, Math.max(i+2, j-2));
+      result += renderTemplate(extractTemplates(rawInner, depthLimit-1));
+      i = j;
+    } else if(c==='[' && c2==='['){
+      const close = text.indexOf(']]', i+2);
+      if(close === -1){ result += text.slice(i); break; }
+      const rawInner = text.slice(i+2, close);
+      const parts = splitTopLevel(extractTemplates(rawInner, depthLimit-1), '|');
+      result += parts[parts.length-1];
+      i = close + 2;
+    } else {
+      result += c; i++;
+    }
+  }
+  return result;
+}
+function renderTemplate(inner){
+  const parts = splitTopLevel(inner, '|').map(s => s.trim());
+  const name = (parts[0]||'').toLowerCase();
+  const args = parts.slice(1).filter(a => a && a.indexOf('=') === -1); // drop named params like abbr=on
+  if(/^(ubl|unbulleted list|plainlist|hlist|flatlist)$/.test(name)) return args.join('; ');
+  if(name === 'convert') return `${args[0]||''} ${args[1]||''}`.trim();
+  if(/^(nowrap|nobreak|nb|sortname|small)$/.test(name)) return args.join(' ');
+  return ''; // unknown/unrecognized template — drop rather than leak raw markup
+}
+function cleanWikiText(raw){
+  if(!raw) return '';
+  let s = raw;
+  s = s.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '');
+  s = s.replace(/<ref[^>]*\/>/gi, '');
+  s = extractTemplates(s);
+  s = s.replace(/<br\s*\/?>/gi, '; ');
+  s = s.replace(/'''?/g, '');
+  s = s.replace(/<[^>]+>/g, '');
+  s = s.replace(/^[:*#]+\s*/, '');
+  s = s.replace(/\s*\n\s*/g, '; ');
+  s = s.replace(/;\s*;+/g, ';');
+  s = s.replace(/^;\s*|;\s*$/g, '');
+  s = s.replace(/\s+/g, ' ').trim();
+  if(s.length > 140) s = s.slice(0, 137) + '…';
+  return s;
+}
+function mapDrivetrain(text){
+  const t = (text||'').toLowerCase();
+  if(!t) return '';
+  if(t.includes('four-wheel') || t.includes('all-wheel') || /\bawd\b/.test(t) || /\b4wd\b/.test(t)) return 'AWD';
+  if(t.includes('front-wheel') || /\bfwd\b/.test(t)) return 'FWD';
+  if(t.includes('rear-wheel') || /\brwd\b/.test(t)) return 'RWD';
+  return '';
+}
+function mapFuelType(text){
+  const t = (text||'').toLowerCase();
+  if(!t.trim()) return '';
+  if(t.includes('battery electric') || t.includes('electric motor') || /\bbev\b/.test(t)) return 'Electric';
+  if(t.includes('hybrid')) return 'Hybrid';
+  if(t.includes('diesel')) return 'Diesel';
+  if(t.includes('hydrogen')) return 'Hydrogen';
+  return 'Petrol'; // no other fuel type mentioned — default assumption for a described combustion engine
 }
 async function saveVehicle(editId){
   const data = {
@@ -1836,7 +2096,7 @@ function exportCsv(){
 
 /* ============================= EXPOSE TO GLOBAL SCOPE (for inline onclick handlers) ============================= */
 Object.assign(window, {
-  showPage, selectVehicle, openVehicleModal, doVinLookup, saveVehicle, deleteVehicle,
+  showPage, selectVehicle, openVehicleModal, doVinLookup, autofillSpecsFromWeb, saveVehicle, deleteVehicle,
   openServiceModal, saveService, deleteService, handleDocUpload, deleteDocument,
   renderDiyResults, showDiyDetail, setLocationText, useGeolocation, runValueCalc,
   toggleSecurity, closeModal, exportCsv, switchAuthTab, handleAuthSubmit, handleSignOut,
