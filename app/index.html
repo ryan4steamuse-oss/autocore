@@ -498,20 +498,50 @@ const HEALTH_BUCKETS = {
   Filters: ['cabin_filter']
 };
 
+// Base "as new" MSRP estimates (AUD) used ONLY for the depreciation-model value calculator.
+// These are approximate anchor points, not live pricing. Specific model matches are used
+// first; unmatched models fall back to a brand-level estimate, then a generic default —
+// see estimateValue() below, which flags which tier was used so the UI can warn the user
+// when the number is a rough guess rather than a real anchor price.
 const BASE_MSRP = {
-  'toyota camry':42000,'toyota corolla':28000,'toyota rav4':38000,'toyota hilux':45000,'toyota landcruiser':90000,
-  'ford ranger':55000,'ford focus':30000,'ford everest':60000,
-  'mazda 3':30000,'mazda cx-5':40000,'mazda cx-3':28000,
-  'hyundai i30':28000,'hyundai tucson':38000,'hyundai kona':32000,
-  'holden commodore':40000,'holden astra':28000,'holden colorado':48000,
-  'honda civic':32000,'honda cr-v':40000,'honda accord':38000,
-  'nissan x-trail':38000,'nissan navara':48000,'nissan qashqai':32000,
-  'subaru outback':45000,'subaru forester':38000,'subaru impreza':28000,
-  'volkswagen golf':32000,'volkswagen tiguan':42000,'volkswagen amarok':55000,
-  'kia sportage':38000,'kia cerato':26000,'kia seltos':30000,
+  'toyota camry':42000,'toyota corolla':28000,'toyota rav4':38000,'toyota hilux':45000,'toyota landcruiser':90000,'toyota supra':85000,'toyota 86':38000,'toyota gr86':45000,'toyota gr yaris':56000,'toyota kluger':55000,'toyota prado':72000,
+  'ford ranger':55000,'ford focus':30000,'ford everest':60000,'ford mustang':65000,'ford ranger raptor':85000,'ford focus st':48000,
+  'mazda 3':30000,'mazda cx-5':40000,'mazda cx-3':28000,'mazda mx-5':38000,'mazda cx-9':55000,
+  'hyundai i30':28000,'hyundai tucson':38000,'hyundai kona':32000,'hyundai i30 n':52000,'hyundai santa fe':52000,
+  'holden commodore':40000,'holden astra':28000,'holden colorado':48000,'holden commodore ss':55000,
+  'honda civic':32000,'honda cr-v':40000,'honda accord':38000,'honda civic type r':72000,
+  'nissan x-trail':38000,'nissan navara':48000,'nissan qashqai':32000,'nissan gt-r':175000,'nissan patrol':85000,
+  'subaru outback':45000,'subaru forester':38000,'subaru impreza':28000,'subaru wrx':48000,'subaru wrx sti':55000,'subaru brz':40000,
+  'volkswagen golf':32000,'volkswagen tiguan':42000,'volkswagen amarok':55000,'volkswagen golf gti':52000,'volkswagen golf r':65000,
+  'kia sportage':38000,'kia cerato':26000,'kia seltos':30000,'kia stinger':52000,
   'mitsubishi triton':45000,'mitsubishi outlander':38000,'mitsubishi asx':28000,
-  'tesla model 3':62000,'tesla model y':68000
+  'tesla model 3':62000,'tesla model y':68000,'tesla model s':125000,'tesla model x':135000,
+  'bmw 1 series':48000,'bmw 2 series':55000,'bmw 3 series':72000,'bmw 4 series':82000,'bmw 5 series':105000,'bmw x1':58000,'bmw x3':78000,'bmw x5':115000,
+  'bmw m2':105000,'bmw m3':148000,'bmw m3 competition':172000,'bmw m4':155000,'bmw m4 competition':178000,'bmw m5':215000,'bmw x3 m':148000,'bmw x5 m':215000,
+  'mercedes-benz a-class':52000,'mercedes-benz c-class':78000,'mercedes-benz e-class':108000,'mercedes-benz glc':85000,'mercedes-benz gle':125000,
+  'mercedes-amg a45':95000,'mercedes-amg c63':165000,'mercedes-amg e63':215000,'mercedes-amg gt':255000,
+  'audi a3':48000,'audi a4':68000,'audi a6':98000,'audi q3':58000,'audi q5':78000,'audi q7':105000,'audi rs3':95000,'audi rs4':145000,'audi rs6':215000,'audi s3':78000,
+  'lexus is':70000,'lexus rx':95000,'lexus nx':70000,'lexus rc f':135000,
+  'porsche 718 cayman':115000,'porsche 911':245000,'porsche 911 gt3':365000,'porsche macan':95000,'porsche cayenne':135000,'porsche taycan':180000,
+  'volvo xc40':55000,'volvo xc60':75000,'volvo xc90':105000,
+  'land rover defender':85000,'land rover discovery':95000,'range rover evoque':75000,'range rover sport':135000
 };
+// Brand-level fallback (AUD) used when the specific model isn't in BASE_MSRP above.
+const BRAND_MSRP = {
+  'bmw':85000,'mercedes-benz':95000,'mercedes':95000,'audi':78000,'porsche':175000,'lexus':75000,
+  'land rover':95000,'range rover':110000,'jaguar':95000,'maserati':180000,'ferrari':450000,'lamborghini':450000,'bentley':350000,'rolls-royce':550000,
+  'volvo':70000,'genesis':75000,'tesla':80000,
+  'toyota':40000,'mazda':35000,'hyundai':35000,'kia':35000,'honda':38000,'nissan':40000,'subaru':40000,'mitsubishi':38000,
+  'ford':45000,'holden':40000,'volkswagen':40000,'skoda':38000,'peugeot':42000,'renault':32000,'suzuki':26000,'mg':28000,'gwm':32000,'haval':32000
+};
+// Performance/high-output trim keywords bump the base price when the specific
+// variant wasn't matched exactly above (e.g. base "BMW 3 Series" price found, but
+// the car is actually an "M340i" or similar hot variant of it).
+const PERFORMANCE_KEYWORDS = [
+  {kw:'competition', mult:1.15}, {kw:' m3', mult:1.8}, {kw:' m4', mult:1.8}, {kw:' m5', mult:1.9}, {kw:' m2', mult:1.6},
+  {kw:'amg', mult:1.7}, {kw:' rs', mult:1.7}, {kw:'type r', mult:1.5}, {kw:'type s', mult:1.35}, {kw:'gt-r', mult:2.2},
+  {kw:' sti', mult:1.3}, {kw:' n ', mult:1.4}, {kw:' ss', mult:1.3}, {kw:'srt', mult:1.5}, {kw:'gti', mult:1.35}, {kw:' r ', mult:1.4}, {kw:'gr86', mult:1.15}, {kw:'gr yaris', mult:1.2}
+];
 const DEFAULT_MSRP = 34000;
 
 const CURRENCY_SYMBOLS = { AUD:'$', USD:'$', GBP:'£', EUR:'€' };
@@ -1604,15 +1634,33 @@ function useGeolocation(){
 
 /* ============================= CAR VALUE ============================= */
 function estimateValue(v, condition, accidents, mods){
-  const key = `${(v.make||'').toLowerCase()} ${(v.model||'').toLowerCase()}`.trim();
-  let base = DEFAULT_MSRP;
-  for(const k in BASE_MSRP){ if(key.includes(k)) { base = BASE_MSRP[k]; break; } }
+  const make = (v.make||'').toLowerCase().trim();
+  const model = (v.model||'').toLowerCase().trim();
+  const key = `${make} ${model}`.trim();
+  let base = null;
+  let confidence = 'generic';
+  // 1. Exact/specific model match (best) — check longest/most specific keys first
+  //    so e.g. "bmw m3 competition" matches before the shorter "bmw m3" entry does.
+  const modelKeys = Object.keys(BASE_MSRP).sort((a,b)=> b.length-a.length);
+  for(const k of modelKeys){ if(key.includes(k)) { base = BASE_MSRP[k]; confidence = 'matched'; break; } }
+  // 2. Brand-level fallback (decent) — longest brand names first so e.g.
+  //    "land rover" matches before a shorter accidental substring would.
+  if(base === null){
+    const brands = Object.keys(BRAND_MSRP).sort((a,b)=> b.length-a.length);
+    for(const b of brands){ if(make.includes(b)) { base = BRAND_MSRP[b]; confidence = 'brand'; break; } }
+  }
+  // 3. Generic default (rough guess only)
+  if(base === null){ base = DEFAULT_MSRP; confidence = 'generic'; }
+  // Bump for performance/high-output variants not already captured by an exact match
+  if(confidence !== 'matched'){
+    for(const p of PERFORMANCE_KEYWORDS){ if((' '+key+' ').includes(p.kw)) { base *= p.mult; break; } }
+  }
   const year = parseInt(v.year) || new Date().getFullYear()-5;
   const age = Math.max(new Date().getFullYear() - year, 0);
   let value = base * Math.pow(0.85, age);
   const expectedKm = age * 15000;
   const kmDiff = (v.odometer||0) - expectedKm;
-  value -= kmDiff * 0.08;
+  value -= kmDiff * (base > 100000 ? 0.2 : 0.08); // pricier cars lose more $ per extra km
   const condMult = {excellent:1.05, good:1.0, fair:0.9, poor:0.75}[condition] ?? 1.0;
   value *= condMult;
   const accMult = {none:1.0, minor:0.92, major:0.8}[accidents] ?? 1.0;
@@ -1620,7 +1668,7 @@ function estimateValue(v, condition, accidents, mods){
   const modMult = {stock:1.0, minor:0.97, heavy:0.9}[mods] ?? 1.0;
   value *= modMult;
   value = Math.max(value, 1500);
-  return {min: value*0.9, mid: value, max: value*1.1, base, age};
+  return {min: value*0.9, mid: value, max: value*1.1, base, age, confidence};
 }
 function renderValue(v){
   $('#page-value').innerHTML = `
@@ -1663,7 +1711,15 @@ function runValueCalc(){
   const mods = $('#val-mods').value;
   const vv = {...v, year, odometer: odo};
   const est = estimateValue(vv, condition, accidents, mods);
+  let sourceNote = 'Method: starts from a typical new-car price for this model, applies ~15%/year depreciation, then adjusts for odometer vs. expected km, condition, accident history and modifications. For a real sale price, cross-check with actual listings (Carsales, Facebook Marketplace) for your exact model.';
+  if(est.confidence === 'generic'){
+    sourceNote = `⚠️ No price anchor for "${escapeHtml(v.make)} ${escapeHtml(v.model)}" in the built-in table, so this used a generic $${DEFAULT_MSRP.toLocaleString()} new-price guess — treat this number as unreliable. Cross-check with Carsales/Drive.com.au directly for this car.`;
+  } else if(est.confidence === 'brand'){
+    sourceNote = `⚠️ No exact model match — this used a rough ${escapeHtml(v.make)}-brand average new price, not this specific model's real price, so treat it as a ballpark only. Cross-check with actual listings for your exact model.`;
+  }
+  const isWarning = sourceNote.startsWith('⚠️');
   $('#value-result').innerHTML = `
+    ${isWarning ? `<div class="alert alert-warning"><div class="alert-icon">⚠️</div><div class="alert-text"><strong>Low-confidence estimate</strong><span>${sourceNote.replace('⚠️ ','')}</span></div></div>` : ''}
     <div class="grid-3" style="gap:12px;margin-bottom:20px">
       <div style="text-align:center;padding:16px;background:rgba(232,89,60,0.08);border-radius:var(--radius-sm);border:1px solid rgba(232,89,60,0.2)"><div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase">Minimum</div><div style="font-size:20px;font-weight:800;color:var(--accent)">${fmtMoney(est.min)}</div></div>
       <div style="text-align:center;padding:16px;background:rgba(42,120,214,0.1);border-radius:var(--radius-sm);border:2px solid rgba(42,120,214,0.3)"><div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase">Estimated</div><div style="font-size:22px;font-weight:800;color:#2a78d6">${fmtMoney(est.mid)}</div></div>
@@ -1671,7 +1727,7 @@ function runValueCalc(){
     </div>
     <div class="value-bar"><div class="value-indicator" style="left:50%"></div></div>
     <div class="value-labels"><span>${fmtMoney(est.min)}</span><span style="color:#2a78d6;font-weight:700">${fmtMoney(est.mid)} est.</span><span>${fmtMoney(est.max)}</span></div>
-    <small class="hint" style="margin-top:16px">Method: starts from a typical new-car price for this model, applies ~15%/year depreciation, then adjusts for odometer vs. expected km, condition, accident history and modifications. For a real sale price, cross-check with actual listings (Carsales, Facebook Marketplace) for your exact model.</small>
+    ${!isWarning ? `<small class="hint" style="margin-top:16px">${sourceNote}</small>` : ''}
   `;
 }
 
