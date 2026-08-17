@@ -1,4 +1,4 @@
-# 🚗 AutoCore
+# AutoCore
 
 ### The All-in-One Smart Car Management Platform
 
@@ -10,7 +10,7 @@ Instead of relying on scattered service receipts, spreadsheets, mechanic recomme
 
 > **Know your car. Maintain it smarter. Spend less. Drive with confidence.**
 
----
+*Most of these advertised features will be made available later on the app's lifecycle*
 
 ## 📖 Table of Contents
 
