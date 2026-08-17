@@ -1672,7 +1672,7 @@ function estimateValue(v, condition, accidents, mods){
 }
 function renderValue(v){
   $('#page-value').innerHTML = `
-    <div class="page-header"><div class="page-title">Car Value Estimator</div><div class="page-sub">A real depreciation-model calculation — not a live market scrape</div></div>
+    <div class="page-header"><div class="page-title">Car Value Estimator</div><div class="page-sub">Checks live Australian listings first (via /api/valuate), then falls back to a depreciation model</div></div>
     <div class="grid-2">
       <div class="card">
         <div class="section-title mb-16">Vehicle Details</div>
@@ -1702,7 +1702,32 @@ function renderValue(v){
   `;
   runValueCalc();
 }
-function runValueCalc(){
+async function fetchLiveListingsValue(payload){
+  // Calls our own /api/valuate serverless function (see api/valuate.js),
+  // which asks Claude to search the web for real current AU listings
+  // (including carsales.com.au) — the closest thing to a "Carsales API"
+  // available without a commercial partner agreement. Returns null
+  // (silently) if the endpoint isn't deployed/configured, so the caller
+  // falls back to the depreciation model.
+  try {
+    const res = await fetch('/api/valuate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(res.status === 404){ return null; } // endpoint not deployed
+    const d = await res.json();
+    if(!res.ok || typeof d.mid !== 'number'){
+      console.warn('Live listings valuation unavailable:', d.error || 'unknown error');
+      return null;
+    }
+    return { min: d.min ?? d.mid*0.9, mid: d.mid, max: d.max ?? d.mid*1.1, summary: d.summary, listingsChecked: d.listingsChecked };
+  } catch(e){
+    console.warn('Live listings valuation failed, falling back', e);
+    return null;
+  }
+}
+async function runValueCalc(){
   const v = getSelected();
   const year = $('#val-year').value;
   const odo = parseFloat($('#val-odo').value) || v.odometer;
@@ -1710,15 +1735,29 @@ function runValueCalc(){
   const accidents = $('#val-accidents').value;
   const mods = $('#val-mods').value;
   const vv = {...v, year, odometer: odo};
-  const est = estimateValue(vv, condition, accidents, mods);
+  const loc = appState.userLocation;
+  const locationText = (loc && loc.text) ? loc.text : 'Australia';
+
+  const resultBox = $('#value-result');
+  resultBox.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">Working — checking real listings…</div>`;
+
+  let est = null;
   let sourceNote = 'Method: starts from a typical new-car price for this model, applies ~15%/year depreciation, then adjusts for odometer vs. expected km, condition, accident history and modifications. For a real sale price, cross-check with actual listings (Carsales, Facebook Marketplace) for your exact model.';
-  if(est.confidence === 'generic'){
-    sourceNote = `⚠️ No price anchor for "${escapeHtml(v.make)} ${escapeHtml(v.model)}" in the built-in table, so this used a generic $${DEFAULT_MSRP.toLocaleString()} new-price guess — treat this number as unreliable. Cross-check with Carsales/Drive.com.au directly for this car.`;
-  } else if(est.confidence === 'brand'){
-    sourceNote = `⚠️ No exact model match — this used a rough ${escapeHtml(v.make)}-brand average new price, not this specific model's real price, so treat it as a ballpark only. Cross-check with actual listings for your exact model.`;
+
+  const liveResult = await fetchLiveListingsValue({ make: v.make, model: v.model, year, odometer: odo, condition, accidents, mods, location: locationText });
+  if(liveResult){
+    est = { ...liveResult, confidence: 'live' };
+    sourceNote = `Live estimate based on ${liveResult.listingsChecked ?? 'several'} comparable current listings. ${liveResult.summary || ''}`;
+  } else {
+    est = estimateValue(vv, condition, accidents, mods);
+    if(est.confidence === 'generic'){
+      sourceNote = `⚠️ No price anchor for "${escapeHtml(v.make)} ${escapeHtml(v.model)}" in the built-in table, so this used a generic $${DEFAULT_MSRP.toLocaleString()} new-price guess — treat this number as unreliable. Cross-check with Carsales/Drive.com.au directly for this car.`;
+    } else if(est.confidence === 'brand'){
+      sourceNote = `⚠️ No exact model match — this used a rough ${escapeHtml(v.make)}-brand average new price, not this specific model's real price, so treat it as a ballpark only. Cross-check with actual listings for your exact model.`;
+    }
   }
   const isWarning = sourceNote.startsWith('⚠️');
-  $('#value-result').innerHTML = `
+  resultBox.innerHTML = `
     ${isWarning ? `<div class="alert alert-warning"><div class="alert-icon">⚠️</div><div class="alert-text"><strong>Low-confidence estimate</strong><span>${sourceNote.replace('⚠️ ','')}</span></div></div>` : ''}
     <div class="grid-3" style="gap:12px;margin-bottom:20px">
       <div style="text-align:center;padding:16px;background:rgba(232,89,60,0.08);border-radius:var(--radius-sm);border:1px solid rgba(232,89,60,0.2)"><div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase">Minimum</div><div style="font-size:20px;font-weight:800;color:var(--accent)">${fmtMoney(est.min)}</div></div>
