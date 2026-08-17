@@ -76,54 +76,82 @@
     .nav-links { display: none; }
   }
 
-  /* ===== Mobile ===== */
+  /* Bottom tab bar — app-only, hidden on desktop/tablet by default */
+  .mobile-tabbar { display: none; }
+
+  /* ===== Mobile: app shell ===== */
   @media (max-width: 560px) {
-    .wrap { padding: 0 18px; }
+    .wrap { padding: 0 16px; }
+    body { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); -webkit-tap-highlight-color: transparent; }
 
-    /* Header */
+    /* ---- Top bar: compact, icon-driven, feels like an app header ---- */
     .nav { padding: 12px 0; }
-    .logo-text { font-size: 16px; }
-    .nav .btn { padding: 9px 14px; font-size: 12px; }
+    .logo-text { font-size: 15px; }
     .nav > div[style] { gap: 8px !important; }
+    .nav .btn-ghost { width: 34px; height: 34px; padding: 0; border-radius: 50%; font-size: 0; background: rgba(255,255,255,0.06); }
+    .nav .btn-ghost::before { content: '👤'; font-size: 14px; }
+    .nav .btn-primary { padding: 8px 14px; border-radius: 17px; font-size: 12px; font-weight: 700; }
 
-    /* Hero */
-    .hero { padding: 48px 0 40px; }
-    .hero::before { width: 100%; height: 320px; top: -140px; }
-    .hero-badge { font-size: 11px; padding: 5px 12px; margin-bottom: 18px; }
-    .hero h1 { font-size: 30px; letter-spacing: -1px; margin-bottom: 14px; }
-    .hero p { font-size: 15px; max-width: 100%; margin-bottom: 26px; }
+    /* ---- Hero: reads as a home-screen card, not a website banner ---- */
+    .hero { padding: 18px 0 28px; text-align: left; }
+    .hero::before { width: 100%; height: 260px; top: -160px; }
+    .hero .wrap { background: linear-gradient(160deg, var(--card), var(--card2)); border: 1px solid var(--border2); border-radius: 22px; padding: 24px 20px; }
+    .hero-badge { font-size: 11px; padding: 5px 12px; margin-bottom: 16px; }
+    .hero h1 { font-size: 27px; letter-spacing: -0.8px; margin-bottom: 12px; }
+    .hero p { font-size: 14px; max-width: 100%; margin-bottom: 22px; }
     .hero-ctas { flex-direction: column; align-items: stretch; gap: 10px; }
-    .btn-lg { padding: 14px 20px; font-size: 14px; width: 100%; }
-    .hero-note { margin-top: 14px; font-size: 11px; }
+    .btn-lg { padding: 15px 20px; font-size: 14px; width: 100%; border-radius: 14px; }
+    .hero-note { margin-top: 12px; font-size: 11px; text-align: center; }
 
-    /* Section headers */
-    .section-label { font-size: 10px; letter-spacing: 1px; }
-    .section-title { font-size: 24px; margin-bottom: 10px; }
-    .section-sub { font-size: 14px; margin-bottom: 32px; }
+    /* ---- Section headers: left-aligned like app screen titles ---- */
+    .section-label { text-align: left; font-size: 10px; letter-spacing: 1px; margin-bottom: 6px; }
+    .section-title { text-align: left; font-size: 21px; margin-bottom: 6px; }
+    .section-sub { text-align: left; font-size: 13px; max-width: 100%; margin: 0 0 20px; }
 
-    /* Features */
-    .features { padding: 48px 0; }
-    .feature-grid { grid-template-columns: 1fr; gap: 12px; }
-    .feature-card { padding: 20px; }
-    .feature-card:hover { transform: none; }
-    .feature-icon { width: 38px; height: 38px; font-size: 18px; margin-bottom: 12px; }
-    .feature-card h3 { font-size: 15px; }
-    .feature-card p { font-size: 13px; }
+    /* ---- Features: settings-style row list instead of a card grid ---- */
+    .features { padding: 32px 0; }
+    .feature-grid { display: flex; flex-direction: column; gap: 0; background: var(--card); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+    .feature-card { display: flex; align-items: flex-start; gap: 14px; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 16px; transition: background 0.15s; }
+    .feature-card:last-child { border-bottom: none; }
+    .feature-card:active { background: rgba(255,255,255,0.04); }
+    .feature-card:hover { transform: none; border-color: transparent; }
+    .feature-icon { width: 38px; height: 38px; font-size: 16px; margin-bottom: 0; flex-shrink: 0; }
+    .feature-card h3 { font-size: 14px; margin-bottom: 3px; }
+    .feature-card p { font-size: 12.5px; line-height: 1.5; }
 
-    /* How it works */
-    .how { padding: 48px 0; }
-    .how-step { padding-left: 40px; }
-    .how-step::before { width: 28px; height: 28px; font-size: 12px; }
-    .how-step h4 { font-size: 14px; }
-    .how-step p { font-size: 13px; }
+    /* ---- How it works: connected vertical timeline, onboarding-style ---- */
+    .how { padding: 32px 0; }
+    .how-grid { gap: 0; }
+    .how-step { padding: 0 0 26px 42px; }
+    .how-step:last-child { padding-bottom: 0; }
+    .how-step::before { width: 26px; height: 26px; font-size: 11px; z-index: 1; }
+    .how-step::after { content: ''; position: absolute; left: 13px; top: 26px; width: 1px; height: calc(100% - 26px); background: var(--border2); }
+    .how-step:last-child::after { display: none; }
+    .how-step h4 { font-size: 13.5px; }
+    .how-step p { font-size: 12.5px; }
 
-    /* CTA */
-    .cta { padding: 56px 0; }
-    .cta-box { padding: 36px 20px; border-radius: 14px; }
-    .cta-box h2 { font-size: 22px; margin-bottom: 10px; }
-    .cta-box p { font-size: 14px; margin-bottom: 22px; }
+    /* ---- CTA: compact app card, not a full marketing block ---- */
+    .cta { padding: 32px 0; }
+    .cta-box { padding: 28px 20px; border-radius: 18px; text-align: left; }
+    .cta-box h2 { font-size: 19px; margin-bottom: 8px; }
+    .cta-box p { font-size: 13px; margin-bottom: 18px; }
+    .cta-box .btn-lg { border-radius: 14px; }
 
-    footer { padding: 24px 0; font-size: 11px; }
+    footer { padding: 20px 0 12px; font-size: 10.5px; }
+
+    /* ---- Fixed bottom tab bar ---- */
+    .mobile-tabbar {
+      display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+      background: rgba(13,13,13,0.92); backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border);
+      padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
+    }
+    .mobile-tabbar a {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+      font-size: 10px; font-weight: 600; color: var(--muted); padding: 4px 0;
+    }
+    .mobile-tabbar a .tab-icon { font-size: 18px; line-height: 1; }
+    .mobile-tabbar a.active { color: var(--accent2); }
   }
 
   /* Prevent hover-lift jank on touch devices generally */
@@ -236,6 +264,13 @@
 <footer>
   <div class="wrap">© <span id="year"></span> AutoCore. Built for people who'd rather not think about their car until they have to.</div>
 </footer>
+
+<nav class="mobile-tabbar" aria-label="App navigation">
+  <a href="#" class="active"><span class="tab-icon">🏠</span>Home</a>
+  <a href="#features"><span class="tab-icon">🧭</span>Features</a>
+  <a href="#how"><span class="tab-icon">📋</span>Guide</a>
+  <a href="/app/?mode=signup"><span class="tab-icon">➕</span>Get Car</a>
+</nav>
 
 <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
 </body>
